@@ -1,7 +1,7 @@
 ---
 name: deploy-hostinger
 description: Use when someone wants an app from the Selan apps catalog (Hermes, Paperclip) running on a Hostinger VPS they already have, as a systemd service, with the Hostinger MCP server or API to find the VPS and SSH to set it up.
-allowed-tools: Bash Read Write WebFetch mcp__hostinger__authenticate mcp__hostinger__complete_authentication mcp__selan__selan_cli_token_create mcp__selan__selan_cli_token_revoke
+allowed-tools: Bash Read WebFetch mcp__hostinger__authenticate mcp__hostinger__complete_authentication
 ---
 
 # Run a Selan app on a Hostinger VPS
@@ -20,12 +20,16 @@ below was written from Hostinger's documentation and has not been run against a 
 2. **Show before running.** Print the commit
    (`git ls-remote https://github.com/selan-ai/selan-apps main`) and the full `<app>/install.sh` and
    `<app>/run.sh`; wait for a yes. The VPS runs exactly that commit, `SHA`.
-3. **The token.** Create one with `selan_cli_token_create`, named `hostinger-<hostname>` (so it can
-   be revoked), ttl `90d` unless told otherwise. If refused, say that an owner mints one in
-   control's Settings, CLI tokens, and stop. Put the secret in a file made with mode 0600
-   (`install -m 600 /dev/null FILE`) using the Write tool, never a command line or log, copy it with
-   `scp FILE root@HOST:/etc/selan-APP.env`, check it arrived `root:root 0600`, and delete FILE. The
-   file is one line, `SELAN_TOKEN=selanct_...`; only root and systemd read it.
+3. **The token.** Claude never sees it. Tell the person to create a CLI token in control under
+   Settings, CLI tokens, named `hostinger-<hostname>` (so it can be revoked). Create the file empty
+   first (`ssh root@HOST 'install -m 600 /dev/null /etc/selan-APP.env'`), then give the person one
+   line to run in their own terminal, which reads the token without echo and writes it straight
+   into that root-owned 0600 file:
+   ```sh
+   read -rs T && printf 'SELAN_TOKEN=%s\n' "$T" | ssh root@HOST 'cat > /etc/selan-APP.env'; unset T
+   ```
+   Wait until they say it is done, check it is `root:root 0600` and not empty (`stat`, `wc -c`;
+   never `cat`), then carry on. Only root and systemd read it.
 4. **Prepare, over `ssh root@HOST`** (as on Google Cloud, step 4):
    ```sh
    apt-get update && apt-get install -y curl git ca-certificates
@@ -65,9 +69,9 @@ below was written from Hostinger's documentation and has not been run against a 
      `GATEWAY_ALLOW_ALL_USERS`. Ask for the values.
    - **Paperclip** runs in trusted local mode on the VPS's loopback with no login (its sync loop talks
      to the API without one), so it is never exposed. Reach it by SSH tunnel:
-     `ssh -N -L 3100:127.0.0.1:3100 root@HOST`, then http://127.0.0.1:3100. Do not open port 3100 in
+     `ssh -N -L 3100:127.0.0.1:3100 root@HOST` (leave it running), then http://127.0.0.1:3100. Do not open port 3100 in
      Hostinger's firewall.
    - If Hostinger's firewall for the VPS is on, leave it on; nothing here needs a new port.
 8. **Remove it.** `systemctl disable --now selan-APP`, delete the unit, `/etc/selan-APP.env`,
-   `/home/selan` and `/opt/selan-apps` (and `userdel selan`); revoke the token with
-   `selan_cli_token_revoke`. Deleting the VPS itself is the person's decision, in hPanel.
+   `/home/selan` and `/opt/selan-apps` (and `userdel selan`); tell the person to revoke the
+   token in control under Settings, CLI tokens. Deleting the VPS itself is the person's decision, in hPanel.

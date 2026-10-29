@@ -1,7 +1,7 @@
 ---
 name: deploy-google-cloud
 description: Use when someone wants an app from the Selan apps catalog (Hermes, Paperclip) running on a Compute Engine VM in their own Google Cloud project, as a systemd service, reached over SSH through IAP with no open firewall port.
-allowed-tools: Bash Read Write WebFetch mcp__selan__selan_cli_token_create mcp__selan__selan_cli_token_revoke
+allowed-tools: Bash Read WebFetch
 ---
 
 # Run a Selan app on a Google Cloud VM
@@ -16,20 +16,25 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
 1. **Show before running.** Print the commit
    (`git ls-remote https://github.com/selan-ai/selan-apps main`) and the full `<app>/install.sh` and
    `<app>/run.sh`; wait for a yes. The VM runs exactly that commit, `SHA` below.
-2. **The token.** A server cannot use a person's session; it needs a long-lived one. Create it with
-   `selan_cli_token_create`, named `VM` (so it can be revoked), ttl `90d` unless told otherwise. If
-   refused, say that an owner mints one in control's Settings, CLI tokens, and stop. Create a
-   file with mode 0600 in a fresh `mktemp -d` (`install -m 600 /dev/null FILE`), write the secret
-   into it with the Write tool, never in a command line or a log:
+2. **The token.** A server cannot use a person's session; it needs a long-lived CLI token, and
+   Claude never sees it. Tell the person to create one in control under Settings, CLI tokens, named
+   `VM` (so it can be revoked). Then create the secret empty and the service account, and give the
+   person one line to run in their own terminal, which reads the token without echo and sends it
+   straight to Secret Manager:
    ```sh
    gcloud services enable compute.googleapis.com secretmanager.googleapis.com iap.googleapis.com --project PROJECT
-   gcloud secrets create VM --data-file=FILE --replication-policy=automatic --project PROJECT
-   shred -u FILE 2>/dev/null || rm -f FILE
+   gcloud secrets create VM --replication-policy=automatic --project PROJECT
    gcloud iam service-accounts create VM --project PROJECT
    gcloud secrets add-iam-policy-binding VM --project PROJECT \
      --member=serviceAccount:VM@PROJECT.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
    ```
-   The service account can read this one secret and nothing else.
+   (A new service account can take a few seconds to be known; repeat the binding if it says the account does not exist.)
+   The person runs, pasting the token at the silent prompt:
+   ```sh
+   read -rs T && printf %s "$T" | gcloud secrets versions add VM --project PROJECT --data-file=-; unset T
+   ```
+   Wait until they say it is done (check `gcloud secrets versions list VM --project PROJECT`
+   shows a version), then carry on. The service account can read this one secret and nothing else.
 3. **Network: SSH only through IAP.** Tag the VM `selan-apps`; allow IAP's range and refuse every
    other source for port 22 on that tag. No app port is ever opened.
    ```sh
@@ -98,7 +103,7 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
      talks to that API unauthenticated. It is never exposed. Reach it from the person's machine
      with a tunnel, which is the only way in and is gated by their Google login:
      `gcloud compute ssh VM --project PROJECT --zone ZONE --tunnel-through-iap -- -N -L 3100:127.0.0.1:3100`
-     and open http://127.0.0.1:3100. (Paperclip has an authenticated mode for a public address; the
+     and open http://127.0.0.1:3100. Leave that command running while the UI is in use. (Paperclip has an authenticated mode for a public address; the
      sync loop does not log in, so this skill does not use it.)
 8. **Remove it.** Delete everything, then the token:
    ```sh
@@ -107,6 +112,5 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
    gcloud iam service-accounts delete VM@PROJECT.iam.gserviceaccount.com --project PROJECT --quiet
    gcloud compute firewall-rules delete selan-apps-allow-iap-ssh selan-apps-deny-ssh --project PROJECT --quiet
    ```
-   (Keep the two rules if another selan-apps VM uses them.) Revoke the token with
-   `selan_cli_token_revoke` and the id `selan_cli_token_create` answered, then show
-   `gcloud compute instances list --project PROJECT` and the token list.
+   (Keep the two rules if another selan-apps VM uses them.) Tell the person to revoke the token in
+   control under Settings, CLI tokens, then show `gcloud compute instances list --project PROJECT`.
