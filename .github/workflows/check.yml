@@ -1,0 +1,28 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n
+        run: |
+          for script in $(git ls-files '*.sh'); do
+            echo "bash -n $script"
+            bash -n "$script"
+          done
+
+      - name: shellcheck
+        run: shellcheck --version && git ls-files -z '*.sh' | xargs -0 shellcheck
+
+      - name: catalog.json and the folders agree
+        run: .github/check-catalog.sh
