@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/paperclip/
 
 The UI opens at http://127.0.0.1:3100 (`PAPERCLIP_PORT` changes the port, for the server and the sync). Needs `curl`, `node`
 and `npm`, and Claude Code (`claude`) on your PATH for the agents. Arguments after `run.sh` go to
-`paperclipai run`. Stop it with Ctrl-C.
+`paperclipai run`. Stop it with Ctrl-C; if `run.sh` is killed any other way, even with `kill -9`, the server and its database stop within a few seconds.
 
 ## What `run.sh` does
 
@@ -46,6 +46,9 @@ Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/paperclip`): `node
 `paperclipai` version pinned in `install.sh`), `data/` (Paperclip's database, keys and files),
 `npm-cache/`, `xdg/`, and `run.sh`. Nothing is installed globally. Claude Code itself keeps its
 sessions in its own `~/.claude`, as it always does.
+
+Claude served from a Claude subscription works here: the agents are Claude Code itself, which
+Anthropic does not treat as a third-party app (Hermes, by contrast, gets Anthropic's "extra usage" refusal).
 
 ## Other agent types
 

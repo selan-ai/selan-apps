@@ -53,8 +53,10 @@ starts `hermes`.
 
 ## Notes
 
-- Claude served from a Claude subscription answers with Anthropic's "Third-party apps now draw
-  from your extra usage" message; it is passed on as it is.
+- Claude served from a Claude subscription does not answer: Anthropic replies HTTP 400 with "Third-party
+  apps now draw from your extra usage, not your plan limits", and Hermes shows it as "Anthropic rejected
+  this request as malformed", followed by that message. Use a company whose Claude runs on an API key,
+  or a non-Claude model.
 - `config.yaml` is written again at every launch, so changes to your company's models,
   connectors and marketplaces arrive at the next one. Edit Hermes's behaviour through
   `hermes config`, not by editing that file.

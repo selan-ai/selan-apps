@@ -104,17 +104,25 @@ async function pass(writeKey) {
 (async () => {
   await pass(true);
   while (mode === "watch") {
-    await new Promise((r) => setTimeout(r, 15000));
+    for (let second = 0; second < 15 && pids.every(alive); second++) await new Promise((r) => setTimeout(r, 1000));
     if (!pids.every(alive)) break;
     try { await pass(false); } catch (e) { console.error("warning: " + e.message); }
   }
 })();
 '
+# Job control gives the server its own process group, which holds its embedded Postgres
+# too, so the whole group can be stopped at once.
+set -m
 server_pid=""
 watcher_pid=""
+guard_pid=""
 stop() {
+  [ -z "$guard_pid" ] || kill "$guard_pid" 2>/dev/null || true
   [ -z "$watcher_pid" ] || kill "$watcher_pid" 2>/dev/null || true
-  [ -z "$server_pid" ] || kill "$server_pid" 2>/dev/null || true
+  if [ -n "$server_pid" ]; then
+    kill -TERM -- "-$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
 }
 trap stop EXIT
 trap 'exit 130' INT TERM
@@ -130,6 +138,15 @@ else
     PORT="$PORT" "$PAPERCLIP" onboard --yes --no-install-service --data-dir "$APP_HOME/data" </dev/null &
   fi
   server_pid=$!
+  # SIGKILL runs no trap, so a guard outside this shell stops the server's group once this
+  # script's pid is gone, with a SIGKILL after 10 seconds if Paperclip has not finished.
+  (
+    while kill -0 "$$" 2>/dev/null; do sleep 1; done
+    kill -TERM -- "-$server_pid" 2>/dev/null || exit 0
+    for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 -- "-$server_pid" 2>/dev/null || exit 0; sleep 1; done
+    kill -KILL -- "-$server_pid" 2>/dev/null || true
+  ) </dev/null >/dev/null 2>&1 &
+  guard_pid=$!
   for _ in $(seq 1 120); do
     curl -fsS --max-time 3 "$API/health" >/dev/null 2>&1 && break
     kill -0 "$server_pid" 2>/dev/null || { echo "Paperclip stopped before it was ready" >&2; exit 1; }
