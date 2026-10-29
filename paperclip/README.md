@@ -18,7 +18,7 @@ With `selan-cli`:
 selan app paperclip
 ```
 
-By hand (a `selanct_` CLI token from control.selan.ai, Settings):
+By hand (a `selanct_` API token; an owner mints it in control under [Settings → API tokens](https://control.selan.ai/settings/access)):
 
 ```sh
 export SELAN_TOKEN=selanct_...
