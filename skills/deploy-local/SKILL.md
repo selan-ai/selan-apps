@@ -17,7 +17,7 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
 3. **Run it once.**
    - With `selan` installed (`command -v selan`, and `selan app list` works): `selan app <app> [args]`.
      It shows the scripts and asks for itself, and uses the person's signed-in session.
-   - Without: the README's lines. A `selanct_` token from control.selan.ai, Settings, then
+   - Without: the README's lines. A `selanct_` API token, which an owner mints at control.selan.ai under Settings → API tokens, then
      ```sh
      export SELAN_TOKEN=selanct_...
      curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/<app>/install.sh | bash
@@ -27,8 +27,8 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
    - Hermes: `chat` for a terminal chat. Paperclip: no arguments; its UI is http://127.0.0.1:3100.
 4. **Always on, only if the person asks.** A service has no signed-in session, so it needs a
    long-lived token.
-   - Claude never sees it. Tell the person to create a CLI token in control under Settings, CLI
-     tokens, named `<app>-<hostname>`. Create `~/.selan/apps/<app>/service.env` empty with mode 0600
+   - Claude never sees it. Tell the person an owner mints an API token in control under Settings → API
+     tokens (https://control.selan.ai/settings/access), named `<app>-<hostname>`. Create `~/.selan/apps/<app>/service.env` empty with mode 0600
      (`install -m 600 /dev/null FILE`), then give the person one line to run in their own terminal,
      which reads the token without echo into that file:
      ```sh
@@ -59,4 +59,4 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
 5. **Remove it.** `launchctl bootout gui/$(id -u)/ai.selan.apps.<app>` and delete the plist, or
    `systemctl --user disable --now selan-<app>` and delete the unit; delete
    `~/.selan/apps/<app>` (Paperclip's database is in it); tell the person to revoke the
-   token in control under Settings, CLI tokens.
+   token in control under Settings → API tokens.

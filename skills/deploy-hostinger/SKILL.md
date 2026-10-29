@@ -20,8 +20,8 @@ below was written from Hostinger's documentation and has not been run against a 
 2. **Show before running.** Print the commit
    (`git ls-remote https://github.com/selan-ai/selan-apps main`) and the full `<app>/install.sh` and
    `<app>/run.sh`; wait for a yes. The VPS runs exactly that commit, `SHA`.
-3. **The token.** Claude never sees it. Tell the person to create a CLI token in control under
-   Settings, CLI tokens, named `hostinger-<hostname>` (so it can be revoked). Create the file empty
+3. **The token.** Claude never sees it. Tell the person an owner mints an API token in control under
+   Settings → API tokens (https://control.selan.ai/settings/access), named `hostinger-<hostname>` (so it can be revoked). Create the file empty
    first (`ssh root@HOST 'install -m 600 /dev/null /etc/selan-APP.env'`), then give the person one
    line to run in their own terminal, which reads the token without echo and writes it straight
    into that root-owned 0600 file:
@@ -74,4 +74,4 @@ below was written from Hostinger's documentation and has not been run against a 
    - If Hostinger's firewall for the VPS is on, leave it on; nothing here needs a new port.
 8. **Remove it.** `systemctl disable --now selan-APP`, delete the unit, `/etc/selan-APP.env`,
    `/home/selan` and `/opt/selan-apps` (and `userdel selan`); tell the person to revoke the
-   token in control under Settings, CLI tokens. Deleting the VPS itself is the person's decision, in hPanel.
+   token in control under Settings → API tokens. Deleting the VPS itself is the person's decision, in hPanel.

@@ -8,7 +8,7 @@
 # the token), and starts hermes with the token in its environment only.
 set -euo pipefail
 
-: "${SELAN_TOKEN:?SELAN_TOKEN is not set: export a selanct_ CLI token from control.selan.ai > Settings}"
+: "${SELAN_TOKEN:?SELAN_TOKEN is not set: export a selanct_ API token, minted by an owner at control.selan.ai > Settings > API tokens}"
 SELAN_GATEWAY="${SELAN_GATEWAY:-https://gw.selan.ai}"
 SELAN_GATEWAY="${SELAN_GATEWAY%/}"
 APP_HOME="${SELAN_APP_HOME:-$HOME/.selan/apps/hermes}"

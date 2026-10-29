@@ -16,8 +16,8 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
 1. **Show before running.** Print the commit
    (`git ls-remote https://github.com/selan-ai/selan-apps main`) and the full `<app>/install.sh` and
    `<app>/run.sh`; wait for a yes. The VM runs exactly that commit, `SHA` below.
-2. **The token.** A server cannot use a person's session; it needs a long-lived CLI token, and
-   Claude never sees it. Tell the person to create one in control under Settings, CLI tokens, named
+2. **The token.** A server cannot use a person's session; it needs a long-lived API token, and
+   Claude never sees it. Tell the person an owner mints one in control under Settings → API tokens (https://control.selan.ai/settings/access), named
    `VM` (so it can be revoked). Then create the secret empty and the service account, and give the
    person one line to run in their own terminal, which reads the token without echo and sends it
    straight to Secret Manager:
@@ -113,4 +113,4 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
    gcloud compute firewall-rules delete selan-apps-allow-iap-ssh selan-apps-deny-ssh --project PROJECT --quiet
    ```
    (Keep the two rules if another selan-apps VM uses them.) Tell the person to revoke the token in
-   control under Settings, CLI tokens, then show `gcloud compute instances list --project PROJECT`.
+   control under Settings → API tokens, then show `gcloud compute instances list --project PROJECT`.

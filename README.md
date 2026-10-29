@@ -13,7 +13,7 @@ these same scripts; without it you run them yourself.
 
 ## By hand
 
-You need a `selanct_` CLI token (control.selan.ai, Settings).
+You need a `selanct_` API token. An owner mints it in control under [Settings → API tokens](https://control.selan.ai/settings/access).
 
 ```sh
 export SELAN_TOKEN=selanct_...
@@ -40,8 +40,8 @@ This repository is also a Claude Code plugin. Add it and ask Claude to deploy an
 | `deploy-hostinger` | a Hostinger VPS you already have, a systemd service, over SSH |
 
 Each runs the same `install.sh` and `run.sh` as above and shows you the commit and the scripts
-first. A server cannot use your session, so a remote deploy uses a long-lived CLI token named
-after the server. You create it in control under Settings, CLI tokens, and paste it into one command
+first. A server cannot use your session, so a remote deploy uses a long-lived API token named
+after the server. An owner creates it in control under Settings → API tokens, and you paste it into one command
 in your own terminal that sends it to Secret Manager or a root-only file; Claude never sees it.
 Removing the deploy means revoking it there. Paperclip's UI is never put on the internet: you
 reach it by SSH tunnel.
