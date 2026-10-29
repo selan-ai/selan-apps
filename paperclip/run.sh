@@ -32,9 +32,11 @@ settings="$(printf 'header = "Authorization: Bearer %s"\n' "$SELAN_TOKEN" \
   || { echo "could not read company settings from $SELAN_GATEWAY/selan/settings" >&2; exit 1; }
 
 # Paperclip's local REST API: one pass over every company, then (with "watch") again every
-# 15 seconds. SELAN_TOKEN is written into the connection on the first pass only.
+# 15 seconds. SELAN_TOKEN is written into the connection on the first pass only. The loop
+# ends when run.sh or the server it started is gone (a SIGKILL of run.sh runs no trap).
 SYNC_PROGRAM='
-const [api, gateway, mode] = process.argv.slice(1);
+const [api, gateway, mode, ...pids] = process.argv.slice(1);
+const alive = (pid) => { try { process.kill(Number(pid), 0); return true; } catch (e) { return e.code === "EPERM"; } };
 const settings = JSON.parse(process.env.SELAN_SETTINGS);
 const NAME = "Selan";
 
@@ -58,20 +60,35 @@ const connectionBody = (existingId) => ({
   ...(existingId ? { connectionId: existingId } : {}),
 });
 
-const findConnection = async (company) =>
-  ((await call("GET", "/companies/" + company + "/ai-connections")).connections || []).find((c) => c.name === NAME);
+const findConnections = async (company) =>
+  ((await call("GET", "/companies/" + company + "/ai-connections")).connections || []).filter((c) => c.name === NAME && c.status !== "revoked");
+
+// Keeps the first "Selan" connection and archives the rest (Paperclip has no other way to
+// remove one; an archived connection stays listed with status "revoked", which is skipped). Their ids are returned so agents bound to them can be moved.
+async function dropDuplicates(company, found) {
+  const dropped = new Set();
+  for (const extra of found.slice(1)) {
+    await call("DELETE", "/tool-connections/" + extra.id);
+    dropped.add(extra.id);
+    console.log("removed a duplicate " + NAME + " connection in company " + company);
+  }
+  return dropped;
+}
 
 async function syncCompany(company, writeKey) {
-  let connection = await findConnection(company);
+  const found = await findConnections(company);
+  const dropped = await dropDuplicates(company, found);
+  let connection = found[0];
   if (!connection || writeKey) {
     await call("POST", "/companies/" + company + "/ai-connections", connectionBody(connection && connection.id));
     console.log((connection ? "updated" : "created") + " the " + NAME + " connection in company " + company);
-    connection = await findConnection(company);
+    connection = (await findConnections(company))[0];
   }
   const binding = { provider: "anthropic", method: "api_key", mode: "shared", connectionId: connection.id, grantId: connection.grantId };
   for (const agent of await call("GET", "/companies/" + company + "/agents")) {
     const runtime = agent.runtimeConfig || {};
-    if (agent.adapterType !== "claude_local" || runtime.aiConnection) continue;
+    const bound = runtime.aiConnection && runtime.aiConnection.connectionId;
+    if (agent.adapterType !== "claude_local" || (runtime.aiConnection && !dropped.has(bound))) continue;
     await call("PATCH", "/agents/" + agent.id, { runtimeConfig: { ...runtime, aiConnection: binding } });
     console.log("bound agent " + agent.name + " to the " + NAME + " connection");
   }
@@ -88,12 +105,11 @@ async function pass(writeKey) {
   await pass(true);
   while (mode === "watch") {
     await new Promise((r) => setTimeout(r, 15000));
+    if (!pids.every(alive)) break;
     try { await pass(false); } catch (e) { console.error("warning: " + e.message); }
   }
 })();
 '
-sync() { SELAN_SETTINGS="$settings" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" "$1"; }
-
 server_pid=""
 watcher_pid=""
 stop() {
@@ -107,11 +123,11 @@ if curl -fsS --max-time 3 "$API/health" >/dev/null 2>&1; then
   echo "Paperclip already answers on port $PORT; using it"
 else
   if [ -f "$APP_HOME/data/instances/default/config.json" ]; then
-    "$PAPERCLIP" run --data-dir "$APP_HOME/data" "$@" </dev/null &
+    PORT="$PORT" "$PAPERCLIP" run --data-dir "$APP_HOME/data" "$@" </dev/null &
   else
     # First launch: Paperclip's own setup with its defaults (local, loopback only, no
     # service installed), which goes on to start the server.
-    "$PAPERCLIP" onboard --yes --no-install-service --data-dir "$APP_HOME/data" </dev/null &
+    PORT="$PORT" "$PAPERCLIP" onboard --yes --no-install-service --data-dir "$APP_HOME/data" </dev/null &
   fi
   server_pid=$!
   for _ in $(seq 1 120); do
@@ -121,7 +137,9 @@ else
   done
 fi
 
-sync watch &
+# Started here, not through a function, so watcher_pid is the node process itself. It is
+# given this script's pid and the server's, and exits on its own once either is gone.
+SELAN_SETTINGS="$settings" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" watch $$ $server_pid &
 watcher_pid=$!
 
 case "$(uname -s)" in
