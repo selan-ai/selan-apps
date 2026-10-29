@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/paperclip/
 ~/.selan/apps/paperclip/run.sh
 ```
 
-The UI opens at http://127.0.0.1:3100 (`PAPERCLIP_PORT` changes the port). Needs `curl`, `node`
+The UI opens at http://127.0.0.1:3100 (`PAPERCLIP_PORT` changes the port, for the server and the sync). Needs `curl`, `node`
 and `npm`, and Claude Code (`claude`) on your PATH for the agents. Arguments after `run.sh` go to
 `paperclipai run`. Stop it with Ctrl-C.
 
