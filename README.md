@@ -67,8 +67,9 @@ The scripts read the company's models, connectors and plugin marketplaces from
   app's own default home. The token is not written to disk unless the app has to hold a key; that
   app's README says so in its first lines.
 - The endpoint is the Anthropic Messages format at `$SELAN_GATEWAY/anthropic`.
-- Claude served from a Claude subscription answers with Anthropic's "Third-party apps now draw from
-  your extra usage" message; it is passed on.
+- Claude served from a Claude subscription: Hermes gets Anthropic's "Third-party apps now draw from
+  your extra usage" message (HTTP 400) instead of an answer. Paperclip's Claude Code agents are
+  answered normally.
 
 `selan app <name> [args]` reads this repository at `main`, prints the commit, shows the scripts and
 asks `[Y/n]` the first time and whenever they changed, checks `needs`, runs `install.sh`, then
