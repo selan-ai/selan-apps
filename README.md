@@ -24,6 +24,26 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/hermes/ins
 Replace `hermes` with `paperclip` (and drop `chat`) for the other app. Read the script before you
 run it; that is what this repository is for.
 
+## Install anywhere
+
+This repository is also a Claude Code plugin. Add it and ask Claude to deploy an app:
+
+```
+/plugin marketplace add selan-ai/selan-apps
+/plugin install selan-apps@selan-apps
+```
+
+| Skill | Where it runs the app |
+|---|---|
+| `deploy-local` | this machine; with `selan app <name>`, or by hand, and as a launchd or systemd user service if you want it always on |
+| `deploy-google-cloud` | a Compute Engine VM in your project, a systemd service, reached over SSH through IAP with no open firewall port |
+| `deploy-hostinger` | a Hostinger VPS you already have, a systemd service, over SSH |
+
+Each runs the same `install.sh` and `run.sh` as above and shows you the commit and the scripts
+first. A server cannot use your session, so a remote deploy mints a long-lived CLI token named
+after the server (an owner's call), keeps it in Secret Manager or a root-only file, and revokes it
+when you remove the deploy. Paperclip's UI is never put on the internet: you reach it by SSH tunnel.
+
 ## The contract
 
 Every app has `install.sh`, `run.sh` and `README.md`, and an entry in `catalog.json`:
@@ -33,7 +53,6 @@ Every app has `install.sh`, `run.sh` and `README.md`, and an entry in `catalog.j
 |---|---|---|
 | `SELAN_TOKEN` | the signed-in session's token, fresh for this launch | required |
 | `SELAN_GATEWAY` | the channel's proxy base URL | `https://gw.selan.ai` |
-| `SELAN_CONTROL` | the channel's control base URL | prod control |
 | `SELAN_APP_HOME` | `~/.selan/apps/<name>` (`~/.selan-dev/apps/<name>` on dev) | `~/.selan/apps/<name>` |
 
 The scripts read the company's models, connectors and plugin marketplaces from

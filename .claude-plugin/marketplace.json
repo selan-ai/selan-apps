@@ -1,0 +1,15 @@
+{
+  "name": "selan-apps",
+  "description": "Run third-party agent apps (Hermes, Paperclip) on your company's Selan accounts: on this machine, on a Google Cloud VM, or on a Hostinger VPS, using the same install.sh and run.sh as selan app.",
+  "version": "0.1.0",
+  "owner": {
+    "name": "Selan",
+    "url": "https://selan.ai"
+  },
+  "plugins": [
+    {
+      "name": "selan-apps",
+      "source": "./"
+    }
+  ]
+}
