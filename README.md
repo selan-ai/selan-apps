@@ -40,9 +40,11 @@ This repository is also a Claude Code plugin. Add it and ask Claude to deploy an
 | `deploy-hostinger` | a Hostinger VPS you already have, a systemd service, over SSH |
 
 Each runs the same `install.sh` and `run.sh` as above and shows you the commit and the scripts
-first. A server cannot use your session, so a remote deploy mints a long-lived CLI token named
-after the server (an owner's call), keeps it in Secret Manager or a root-only file, and revokes it
-when you remove the deploy. Paperclip's UI is never put on the internet: you reach it by SSH tunnel.
+first. A server cannot use your session, so a remote deploy uses a long-lived CLI token named
+after the server. You create it in control under Settings, CLI tokens, and paste it into one command
+in your own terminal that sends it to Secret Manager or a root-only file; Claude never sees it.
+Removing the deploy means revoking it there. Paperclip's UI is never put on the internet: you
+reach it by SSH tunnel.
 
 ## The contract
 

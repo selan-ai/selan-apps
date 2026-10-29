@@ -1,7 +1,7 @@
 ---
 name: deploy-local
 description: Use when someone wants to run an app from the Selan apps catalog (Hermes, Paperclip) on this machine, once or kept running as a service. Runs the catalog's own install.sh and run.sh; with the selan CLI that is `selan app <name>`.
-allowed-tools: Bash Read Write WebFetch mcp__selan__selan_cli_token_create mcp__selan__selan_cli_token_revoke
+allowed-tools: Bash Read WebFetch
 ---
 
 # Run a Selan app on this machine
@@ -27,11 +27,14 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
    - Hermes: `chat` for a terminal chat. Paperclip: no arguments; its UI is http://127.0.0.1:3100.
 4. **Always on, only if the person asks.** A service has no signed-in session, so it needs a
    long-lived token.
-   - Create one named `<app>-<hostname>` with `selan_cli_token_create` (ttl `90d` unless told
-     otherwise). If refused, say that an owner mints one in control's Settings, CLI tokens, and stop.
-   - Put it in `~/.selan/apps/<app>/service.env` as `SELAN_TOKEN=selanct_...`. Create the file empty
-     first with mode 0600 (`install -m 600 /dev/null FILE`), then write the line with the Write tool,
-     so the token is never in a command line or a log, nor mode 0644 for a moment.
+   - Claude never sees it. Tell the person to create a CLI token in control under Settings, CLI
+     tokens, named `<app>-<hostname>`. Create `~/.selan/apps/<app>/service.env` empty with mode 0600
+     (`install -m 600 /dev/null FILE`), then give the person one line to run in their own terminal,
+     which reads the token without echo into that file:
+     ```sh
+     read -rs T && printf 'SELAN_TOKEN=%s\n' "$T" > ~/.selan/apps/<app>/service.env; unset T
+     ```
+     Wait until they say it is done (check the file is mode 0600 and not empty; never `cat` it).
    - The service starts a wrapper, `~/.selan/apps/<app>/service.sh`, because launchd has no
      environment file:
      ```sh
@@ -55,5 +58,5 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
      gateway (see deploy-google-cloud, Hermes). Paperclip answers on http://127.0.0.1:3100.
 5. **Remove it.** `launchctl bootout gui/$(id -u)/ai.selan.apps.<app>` and delete the plist, or
    `systemctl --user disable --now selan-<app>` and delete the unit; delete
-   `~/.selan/apps/<app>` (Paperclip's database is in it); revoke the token with
-   `selan_cli_token_revoke`, using the id `selan_cli_token_create` answered.
+   `~/.selan/apps/<app>` (Paperclip's database is in it); tell the person to revoke the
+   token in control under Settings, CLI tokens.
