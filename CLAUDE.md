@@ -13,7 +13,9 @@ Public catalog of third-party agent apps that run on a company's Selan accounts.
 ## Rules for every script
 
 - `#!/usr/bin/env bash`, `set -euo pipefail`, shellcheck-clean, readable top to bottom, macOS and Linux.
-- Inputs are `SELAN_TOKEN`, `SELAN_GATEWAY`, `SELAN_APP_HOME`. Never invent another.
+- Inputs are `SELAN_TOKEN`, `SELAN_GATEWAY`, `SELAN_APP_HOME`, and, to serve behind Selan's proxy,
+  `SELAN_APP_PORT` and `SELAN_APP_PUBLIC_URL`. Never invent another. With `SELAN_APP_PORT` unset,
+  the app answers on loopback only, exactly as before.
 - Write only under `$SELAN_APP_HOME`: no shell rc files, no global installs, not the app's default home.
 - The token never lands on disk, except where the app must hold a key; that README says so in its first lines.
 - The endpoint is the Anthropic Messages format at `$SELAN_GATEWAY/anthropic`. `/v1/chat/completions` is not forwarded.

@@ -23,6 +23,23 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/hermes/ins
 Everything after `run.sh` goes to `hermes`: `run.sh chat -m gpt-6-luna -q "hello"`. Needs `curl` and
 `git`; the installer fetches `uv` and Python itself if you have none.
 
+## Behind Selan's proxy
+
+With `SELAN_APP_PORT` set ([the contract](../README.md#behind-a-proxy)) and no arguments, `run.sh`
+serves Hermes's web dashboard, Chat tab included, on `0.0.0.0:$SELAN_APP_PORT`
+(`hermes dashboard --host 0.0.0.0 --port $SELAN_APP_PORT --no-open`). With arguments, they go to
+`hermes` as always.
+
+- Hermes will not serve its dashboard off loopback without a sign-in of its own (`--insecure` no
+  longer skips it), and it cannot trust a proxy's. So the dashboard uses Hermes's bundled
+  username and password sign-in: user `selan`, and a password `run.sh` makes once and keeps in
+  `$SELAN_APP_HOME/dashboard/password` (owner only), with a signing key next to it so sign-ins
+  outlive a restart. Members sign in to it once, after the proxy.
+- `SELAN_APP_PUBLIC_URL` becomes `HERMES_DASHBOARD_PUBLIC_URL`.
+- The first launch builds the dashboard's web UI with `npm` into `hermes-agent/`, so this needs
+  `node` and `npm` too.
+- The OpenAI-compatible API server (port 8642) stays on `127.0.0.1` (`API_SERVER_HOST`).
+
 ## What lands where
 
 Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/hermes`):
@@ -33,6 +50,7 @@ Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/hermes`):
 | `venv/`, `python/`, `uv/`, `cache/` | its Python environment and the tools that build it |
 | `home/` | Hermes's own home (`HERMES_HOME`): `config.yaml`, sessions, memory |
 | `marketplaces/` | shallow clones of your company's plugin marketplaces |
+| `dashboard/` | with `SELAN_APP_PORT` only: the dashboard's password and signing key |
 | `xdg/` | what Hermes and its tools keep in `~/.local`, `~/.cache` and `~/.config` |
 | `run.sh` | a copy of this folder's `run.sh`, so it runs with a terminal attached |
 

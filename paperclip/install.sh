@@ -32,6 +32,11 @@ if [ -x "$APP_HOME/node_modules/.bin/paperclipai" ] \
   exit 0
 fi
 
+# opencode-ai's postinstall makes its folders under ~/.cache, ~/.config and ~/.local
+# unless XDG says otherwise; run.sh points the same variables at the same place.
+export XDG_DATA_HOME="$APP_HOME/xdg/data" XDG_STATE_HOME="$APP_HOME/xdg/state"
+export XDG_CACHE_HOME="$APP_HOME/xdg/cache" XDG_CONFIG_HOME="$APP_HOME/xdg/config"
+
 echo "installing paperclipai $PAPERCLIP_VERSION into $APP_HOME"
 NPM_CONFIG_UPDATE_NOTIFIER=false npm_config_devdir="$APP_HOME/cache/node-gyp" npm install --prefix "$APP_HOME" --cache "$APP_HOME/npm-cache" \
   --no-audit --no-fund --loglevel=error "paperclipai@$PAPERCLIP_VERSION"

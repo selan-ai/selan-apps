@@ -2,6 +2,9 @@
 # Starts Paperclip and gives it a "Selan" AI connection, so its agents run on your
 # company's Selan accounts. Arguments go to `paperclipai run`.
 #
+# Paperclip itself always listens on 127.0.0.1. With SELAN_APP_PORT set, a forwarder also
+# answers on 0.0.0.0:$SELAN_APP_PORT, for Selan's proxy, and no browser is opened.
+#
 # Paperclip keeps AI connections in its own database, so SELAN_TOKEN is stored there
 # (sealed with Paperclip's own key file) as the connection's API key. This script
 # creates that connection in every company Paperclip has, updates its key at each launch
@@ -15,6 +18,28 @@ SELAN_GATEWAY="${SELAN_GATEWAY%/}"
 APP_HOME="${SELAN_APP_HOME:-$HOME/.selan/apps/paperclip}"
 PORT="${PAPERCLIP_PORT:-3100}"
 API="http://127.0.0.1:$PORT/api"
+
+# Serving behind Selan's proxy. Whoever reaches SELAN_APP_PORT reaches Paperclip as its
+# admin, so it is set only behind a proxy that signs people in.
+SELAN_APP_PORT="${SELAN_APP_PORT:-}"
+SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL:-}"
+SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL%/}"
+if [ -n "$SELAN_APP_PORT" ]; then
+  { [[ "$SELAN_APP_PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$SELAN_APP_PORT" -le 65535 ]; } \
+    || { echo "SELAN_APP_PORT is not a port number: $SELAN_APP_PORT" >&2; exit 1; }
+  [ "$SELAN_APP_PORT" != "$PORT" ] \
+    || { echo "SELAN_APP_PORT must differ from Paperclip's own port ($PORT, PAPERCLIP_PORT)" >&2; exit 1; }
+elif [ -n "$SELAN_APP_PUBLIC_URL" ]; then
+  echo "SELAN_APP_PUBLIC_URL is set without SELAN_APP_PORT" >&2
+  exit 1
+fi
+if [ -n "$SELAN_APP_PUBLIC_URL" ]; then
+  # Paperclip has no subpath support: the app is the whole of its own hostname.
+  [[ "$SELAN_APP_PUBLIC_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] \
+    || { echo "SELAN_APP_PUBLIC_URL must be https://<host>, with no path: $SELAN_APP_PUBLIC_URL" >&2; exit 1; }
+  # Paperclip's links use it, and its hostname guard then lets that Host header through.
+  export PAPERCLIP_PUBLIC_URL="$SELAN_APP_PUBLIC_URL"
+fi
 
 PAPERCLIP="$APP_HOME/node_modules/.bin/paperclipai"
 [ -x "$PAPERCLIP" ] || { echo "paperclip is not installed in $APP_HOME: run install.sh first" >&2; exit 1; }
@@ -110,14 +135,38 @@ async function pass(writeKey) {
   }
 })();
 '
+# Paperclip's local_trusted mode only listens on loopback (it refuses any other bind),
+# so the proxy reaches it through this byte-for-byte TCP forwarder, websockets included.
+# It exits once run.sh or the server is gone, and stops run.sh if it cannot listen.
+FORWARD_PROGRAM='
+const net = require("net");
+const [listenPort, targetPort, ...pids] = process.argv.slice(1);
+const alive = (pid) => { try { process.kill(Number(pid), 0); return true; } catch (e) { return e.code === "EPERM"; } };
+const server = net.createServer((client) => {
+  const upstream = net.connect(Number(targetPort), "127.0.0.1");
+  const close = () => { client.destroy(); upstream.destroy(); };
+  for (const socket of [client, upstream]) { socket.on("error", close); socket.on("close", close); }
+  client.pipe(upstream);
+  upstream.pipe(client);
+});
+server.on("error", (e) => {
+  console.error("could not listen on 0.0.0.0:" + listenPort + ": " + e.message);
+  try { process.kill(Number(pids[0]), "SIGTERM"); } catch (_) {}
+  process.exit(1);
+});
+server.listen(Number(listenPort), "0.0.0.0", () => console.log("Paperclip answers on 0.0.0.0:" + listenPort));
+setInterval(() => { if (!pids.every(alive)) process.exit(0); }, 1000);
+'
 # Job control gives the server its own process group, which holds its embedded Postgres
 # too, so the whole group can be stopped at once.
 set -m
 server_pid=""
 watcher_pid=""
 guard_pid=""
+forwarder_pid=""
 stop() {
   [ -z "$guard_pid" ] || kill "$guard_pid" 2>/dev/null || true
+  [ -z "$forwarder_pid" ] || kill "$forwarder_pid" 2>/dev/null || true
   [ -z "$watcher_pid" ] || kill "$watcher_pid" 2>/dev/null || true
   if [ -n "$server_pid" ]; then
     kill -TERM -- "-$server_pid" 2>/dev/null || true
@@ -159,10 +208,15 @@ fi
 SELAN_SETTINGS="$settings" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" watch $$ $server_pid &
 watcher_pid=$!
 
-case "$(uname -s)" in
-  Darwin) open "http://127.0.0.1:$PORT" >/dev/null 2>&1 || true ;;
-  *) xdg-open "http://127.0.0.1:$PORT" >/dev/null 2>&1 || true ;;
-esac
+if [ -n "$SELAN_APP_PORT" ]; then
+  node -e "$FORWARD_PROGRAM" "$SELAN_APP_PORT" "$PORT" $$ $server_pid &
+  forwarder_pid=$!
+else
+  case "$(uname -s)" in
+    Darwin) open "http://127.0.0.1:$PORT" >/dev/null 2>&1 || true ;;
+    *) xdg-open "http://127.0.0.1:$PORT" >/dev/null 2>&1 || true ;;
+  esac
+fi
 
 if [ -n "$server_pid" ]; then
   wait "$server_pid"
