@@ -42,6 +42,9 @@ if [ -n "$SELAN_APP_PUBLIC_URL" ]; then
     || { echo "SELAN_APP_PUBLIC_URL must be https://<host>, with no path: $SELAN_APP_PUBLIC_URL" >&2; exit 1; }
   # Paperclip's links use it, and its hostname guard then lets that Host header through.
   export PAPERCLIP_PUBLIC_URL="$SELAN_APP_PUBLIC_URL"
+  # Paperclip would hand its agents that address as their PAPERCLIP_API_URL too, but the proxy
+  # lets only signed-in members through, so its agents call Paperclip on loopback instead.
+  export PAPERCLIP_API_URL="http://127.0.0.1:$PORT"
 fi
 
 PAPERCLIP="$APP_HOME/node_modules/.bin/paperclipai"
@@ -53,6 +56,13 @@ export XDG_DATA_HOME="$APP_HOME/xdg/data" XDG_STATE_HOME="$APP_HOME/xdg/state"
 export XDG_CACHE_HOME="$APP_HOME/xdg/cache" XDG_CONFIG_HOME="$APP_HOME/xdg/config"
 export PYTHONPYCACHEPREFIX="$APP_HOME/xdg/cache/pycache" npm_config_devdir="$APP_HOME/xdg/cache/node-gyp"
 export npm_config_cache="$APP_HOME/npm-cache" BROWSER=none
+
+# Paperclip runs `claude` for its claude_local agents and for the Test that onboarding passes
+# before it hires one. A machine with a claude of its own keeps using it; one with none (Selan's
+# hosted VM) uses the copy install.sh pinned here, which is left at that version.
+if [ -x "$APP_HOME/claude-code/node_modules/.bin/claude" ]; then
+  export PATH="$PATH:$APP_HOME/claude-code/node_modules/.bin" DISABLE_AUTOUPDATER=1
+fi
 
 # The token goes to curl on stdin, so it is not in a process listing.
 settings="$(printf 'header = "Authorization: Bearer %s"\n' "$SELAN_TOKEN" \
