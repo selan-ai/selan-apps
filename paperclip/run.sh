@@ -24,6 +24,8 @@ API="http://127.0.0.1:$PORT/api"
 SELAN_APP_PORT="${SELAN_APP_PORT:-}"
 SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL:-}"
 SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL%/}"
+# Paperclip has no sign-in of its own for a password to open, and its agents need not see one.
+unset SELAN_APP_PASSWORD
 if [ -n "$SELAN_APP_PORT" ]; then
   { [[ "$SELAN_APP_PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$SELAN_APP_PORT" -le 65535 ]; } \
     || { echo "SELAN_APP_PORT is not a port number: $SELAN_APP_PORT" >&2; exit 1; }

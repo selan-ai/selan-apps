@@ -55,6 +55,8 @@ does not tell them apart.
 - Local mode skips Paperclip's own cross-site check, so the proxy refuses a request that changes
   something when its `Origin` is not the app's own address.
 - The sync loop goes on talking to `127.0.0.1` with no credentials, as before.
+- `SELAN_APP_PASSWORD` is ignored: there is no Paperclip sign-in for it to open. `run.sh` drops it
+  from the environment, so Paperclip and its agents never see it.
 
 ## What lands where
 

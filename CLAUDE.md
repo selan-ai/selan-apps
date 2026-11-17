@@ -14,8 +14,11 @@ Public catalog of third-party agent apps that run on a company's Selan accounts.
 
 - `#!/usr/bin/env bash`, `set -euo pipefail`, shellcheck-clean, readable top to bottom, macOS and Linux.
 - Inputs are `SELAN_TOKEN`, `SELAN_GATEWAY`, `SELAN_APP_HOME`, and, to serve behind Selan's proxy,
-  `SELAN_APP_PORT` and `SELAN_APP_PUBLIC_URL`. Never invent another. With `SELAN_APP_PORT` unset,
-  the app answers on loopback only, exactly as before.
+  `SELAN_APP_PORT`, `SELAN_APP_PUBLIC_URL` and `SELAN_APP_PASSWORD`. Never invent another. With
+  `SELAN_APP_PORT` unset, the app answers on loopback only, exactly as before.
+- `SELAN_APP_PASSWORD`, only with `SELAN_APP_PORT`, is the app's own sign-in password, so the proxy
+  can sign in for its members. An app with no sign-in ignores it. Like the token, it never lands on
+  disk (a hash only if the app stores one) and never on an argument list.
 - Write only under `$SELAN_APP_HOME`: no shell rc files, no global installs, not the app's default home.
 - The token never lands on disk, except where the app must hold a key; that README says so in its first lines.
 - The endpoint is the Anthropic Messages format at `$SELAN_GATEWAY/anthropic`. `/v1/chat/completions` is not forwarded.

@@ -3,7 +3,8 @@
 # Starts Hermes Agent on your company's Selan accounts. Arguments go to hermes:
 #   run.sh chat            run.sh chat -m claude-sonnet-5-5 -q "hello"
 # With SELAN_APP_PORT set and no arguments, it serves Hermes's web dashboard on
-# 0.0.0.0:$SELAN_APP_PORT instead, for Selan's proxy.
+# 0.0.0.0:$SELAN_APP_PORT instead, for Selan's proxy, with SELAN_APP_PASSWORD (if set)
+# as its password.
 #
 # Needs SELAN_TOKEN. Asks the gateway for the company's models, connectors and plugin
 # marketplaces, writes Hermes's config.yaml from them (references to the token, never
@@ -20,13 +21,23 @@ APP_HOME="${SELAN_APP_HOME:-$HOME/.selan/apps/hermes}"
 SELAN_APP_PORT="${SELAN_APP_PORT:-}"
 SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL:-}"
 SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL%/}"
+# The dashboard password, from the host, so the proxy can sign in for its members. It stays
+# in this script's memory and Hermes's environment, never in a file or an argument list.
+APP_PASSWORD="${SELAN_APP_PASSWORD:-}"
+unset SELAN_APP_PASSWORD
 if [ -n "$SELAN_APP_PORT" ]; then
   { [[ "$SELAN_APP_PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$SELAN_APP_PORT" -le 65535 ]; } \
     || { echo "SELAN_APP_PORT is not a port number: $SELAN_APP_PORT" >&2; exit 1; }
 elif [ -n "$SELAN_APP_PUBLIC_URL" ]; then
   echo "SELAN_APP_PUBLIC_URL is set without SELAN_APP_PORT" >&2
   exit 1
+elif [ -n "$APP_PASSWORD" ]; then
+  echo "SELAN_APP_PASSWORD is set without SELAN_APP_PORT" >&2
+  exit 1
 fi
+# Hermes trims the password it is given, so one with spaces at either end would never match.
+[[ ! "$APP_PASSWORD" =~ ^[[:space:]]|[[:space:]]$ ]] \
+  || { echo "SELAN_APP_PASSWORD must not start or end with whitespace" >&2; exit 1; }
 if [ -n "$SELAN_APP_PUBLIC_URL" ]; then
   [[ "$SELAN_APP_PUBLIC_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] \
     || { echo "SELAN_APP_PUBLIC_URL must be https://<host>, with no path: $SELAN_APP_PUBLIC_URL" >&2; exit 1; }
@@ -114,24 +125,36 @@ export SELAN_HERMES_TOKEN="$SELAN_TOKEN"
 if [ -n "$SELAN_APP_PORT" ] && [ "$#" -eq 0 ]; then
   # Hermes refuses an unauthenticated dashboard on any address but loopback (--insecure no
   # longer skips that), and it has no way to trust a proxy's sign-in. So it gets its own
-  # password provider: user "selan", a password made once here and kept in
-  # dashboard/password, and a signing key in dashboard/secret so sign-ins outlive a restart.
+  # password provider: user "selan", SELAN_APP_PASSWORD or else a password made once here
+  # and kept in dashboard/password, and a signing key in dashboard/secret so sign-ins
+  # outlive a restart. Hermes hashes the password in memory and never writes it.
   command -v npm >/dev/null 2>&1 || { echo "the dashboard builds its web UI with npm: install node and npm" >&2; exit 1; }
   DASHBOARD="$APP_HOME/dashboard"
   mkdir -p "$DASHBOARD"
   chmod 700 "$DASHBOARD"
-  for file in password secret; do
+  if [ -n "$APP_PASSWORD" ]; then
+    # A password made by an earlier launch no longer signs in; do not leave it lying here.
+    rm -f "$DASHBOARD/password"
+    files=(secret)
+  else
+    files=(password secret)
+  fi
+  for file in "${files[@]}"; do
     [ -s "$DASHBOARD/$file" ] \
       || (umask 077 && "$PYTHON" -I -c 'import secrets; print(secrets.token_urlsafe(24))' >"$DASHBOARD/$file")
   done
   export HERMES_DASHBOARD_BASIC_AUTH_USERNAME=selan
-  HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="$(cat "$DASHBOARD/password")"
+  HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="${APP_PASSWORD:-$(cat "$DASHBOARD/password")}"
   HERMES_DASHBOARD_BASIC_AUTH_SECRET="$(cat "$DASHBOARD/secret")"
   export HERMES_DASHBOARD_BASIC_AUTH_PASSWORD HERMES_DASHBOARD_BASIC_AUTH_SECRET
   [ -z "$SELAN_APP_PUBLIC_URL" ] || export HERMES_DASHBOARD_PUBLIC_URL="$SELAN_APP_PUBLIC_URL"
   # The OpenAI-compatible API server (8642) stays on loopback whatever the config says.
   export API_SERVER_HOST=127.0.0.1
-  echo "Hermes dashboard on 0.0.0.0:$SELAN_APP_PORT: sign in as selan with the password in $DASHBOARD/password"
+  if [ -n "$APP_PASSWORD" ]; then
+    echo "Hermes dashboard on 0.0.0.0:$SELAN_APP_PORT: sign in as selan with SELAN_APP_PASSWORD"
+  else
+    echo "Hermes dashboard on 0.0.0.0:$SELAN_APP_PORT: sign in as selan with the password in $DASHBOARD/password"
+  fi
   exec "$HERMES" dashboard --host 0.0.0.0 --port "$SELAN_APP_PORT" --no-open
 fi
 exec "$HERMES" "$@"

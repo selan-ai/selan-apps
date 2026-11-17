@@ -58,6 +58,7 @@ Every app has `install.sh`, `run.sh` and `README.md`, and an entry in `catalog.j
 | `SELAN_APP_HOME` | `~/.selan/apps/<name>` (`~/.selan-dev/apps/<name>` on dev) | `~/.selan/apps/<name>` |
 | `SELAN_APP_PORT` | not set | not set: the app answers on `127.0.0.1` only |
 | `SELAN_APP_PUBLIC_URL` | not set | not set |
+| `SELAN_APP_PASSWORD` | not set | not set: an app with a sign-in makes its own password |
 
 The scripts read the company's models, connectors and plugin marketplaces from
 `$SELAN_GATEWAY/selan/settings` with the token, so both ways in get the same ones.
@@ -76,17 +77,22 @@ The scripts read the company's models, connectors and plugin marketplaces from
 ## Behind a proxy
 
 Selan's cloud (the Agents tab in control) runs an app's `run.sh` on a VM, with a Selan proxy in
-front that lets only the company's signed-in members through. It sets two more variables:
+front that lets only the company's signed-in members through. It sets up to three more variables:
 
 - `SELAN_APP_PORT`: the app answers on `0.0.0.0` on this port, and `run.sh` opens no browser.
   Unset, nothing changes: loopback only.
 - `SELAN_APP_PUBLIC_URL`: the `https://` address people open it at, such as
   `https://paperclip-7f3k.agents.selan.ai`. Only with `SELAN_APP_PORT`, and with no path: each app
   is served at the root of its own hostname.
+- `SELAN_APP_PASSWORD`: the password of the app's own sign-in, so the proxy signs in for each member
+  and nobody sees a second login. Only with `SELAN_APP_PORT`. Unset, an app with a sign-in makes a
+  password once and keeps it in `$SELAN_APP_HOME`, as before. It is never written to disk (at most
+  a hash, if the app keeps one) and never put on an argument list. Hermes uses it; Paperclip has no
+  sign-in and ignores it.
 
 **Whoever reaches that port reaches the app.** Set them only behind a proxy that authenticates,
 and keep the port closed to everything else. Paperclip lets anyone through it in as its admin;
-Hermes asks for its dashboard password. Each app's README says what it serves there.
+Hermes asks for its dashboard password (`SELAN_APP_PASSWORD`, or the one it made). Each app's README says what it serves there.
 
 `selan app <name> [args]` reads this repository at `main`, prints the commit, shows the scripts and
 asks `[Y/n]` the first time and whenever they changed, checks `needs`, runs `install.sh`, then
