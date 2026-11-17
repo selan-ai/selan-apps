@@ -32,9 +32,19 @@ serves Hermes's web dashboard, Chat tab included, on `0.0.0.0:$SELAN_APP_PORT`
 
 - Hermes will not serve its dashboard off loopback without a sign-in of its own (`--insecure` no
   longer skips it), and it cannot trust a proxy's. So the dashboard uses Hermes's bundled
-  username and password sign-in: user `selan`, and a password `run.sh` makes once and keeps in
-  `$SELAN_APP_HOME/dashboard/password` (owner only), with a signing key next to it so sign-ins
-  outlive a restart. Members sign in to it once, after the proxy.
+  username and password sign-in: user `selan`, with a signing key in
+  `$SELAN_APP_HOME/dashboard/secret` (owner only) so sign-ins outlive a restart.
+- The password is `SELAN_APP_PASSWORD` when the host sets it, so the proxy signs in for each
+  member and they see no second login. Hermes gets it in its environment and hashes it in memory;
+  it is not written to disk or put on an argument list, and a password an earlier launch made is
+  deleted. It must not start or end with whitespace (Hermes trims it). Unset, `run.sh` makes one
+  once and keeps it in `$SELAN_APP_HOME/dashboard/password` (owner only), and members sign in to
+  it once, after the proxy.
+- Signing in: `POST /auth/password-login` with JSON
+  `{"provider":"basic","username":"selan","password":"…"}` answers 200 `{"ok":true,"next":"/"}` and
+  sets the session cookies (`hermes_session_at`, `hermes_session_rt`, `hermes_session_provider`);
+  a wrong password answers 401. The `hermes_session_at` value also works as
+  `Authorization: Bearer <value>`.
 - `SELAN_APP_PUBLIC_URL` becomes `HERMES_DASHBOARD_PUBLIC_URL`.
 - The first launch builds the dashboard's web UI with `npm` into `hermes-agent/`, so this needs
   `node` and `npm` too.
@@ -50,7 +60,7 @@ Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/hermes`):
 | `venv/`, `python/`, `uv/`, `cache/` | its Python environment and the tools that build it |
 | `home/` | Hermes's own home (`HERMES_HOME`): `config.yaml`, sessions, memory |
 | `marketplaces/` | shallow clones of your company's plugin marketplaces |
-| `dashboard/` | with `SELAN_APP_PORT` only: the dashboard's password and signing key |
+| `dashboard/` | with `SELAN_APP_PORT` only: the dashboard's signing key, and its password unless `SELAN_APP_PASSWORD` is set |
 | `xdg/` | what Hermes and its tools keep in `~/.local`, `~/.cache` and `~/.config` |
 | `run.sh` | a copy of this folder's `run.sh`, so it runs with a terminal attached |
 
