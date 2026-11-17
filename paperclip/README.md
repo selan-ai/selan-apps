@@ -39,6 +39,17 @@ and `npm`, and Claude Code (`claude`) on your PATH for the agents. Arguments aft
 3. Binds every `claude_local` agent that has no AI connection to it. A company or agent you add
    while it runs is picked up within 15 seconds; an agent you point at another connection is left
    alone. Paperclip's own LLM calls use the same connections.
+4. With `SELAN_APP_MODEL` set ([the contract](../README.md#the-contract)), sets it as the model
+   (`adapterConfig.model`) of every `claude_local` agent on the "Selan" connection, the ones
+   already in Paperclip's database included, and of each agent added or bound while it runs,
+   within 15 seconds. A model someone picks in Paperclip after that stays until the next launch,
+   which sets `SELAN_APP_MODEL` again. An id your company's settings do not list stops `run.sh`
+   before Paperclip starts. Unset, agents keep their model (Paperclip's default for a
+   `claude_local` agent with none is `claude-opus-5`).
+
+Paperclip (at the version `install.sh` pins) has no company or instance setting for the model of
+new `claude_local` agents: an agent runs on its own `adapterConfig.model`, and the AI connection
+passes that model on rather than choosing one. So step 4 is what gives new agents the model.
 
 ## Behind Selan's proxy
 

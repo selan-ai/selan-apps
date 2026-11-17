@@ -9,7 +9,8 @@
 # (sealed with Paperclip's own key file) as the connection's API key. This script
 # creates that connection in every company Paperclip has, updates its key at each launch
 # (never a second connection), binds every claude_local agent that has no AI connection
-# to it, and does the same for companies and agents added while it runs.
+# to it, and does the same for companies and agents added while it runs. SELAN_APP_MODEL,
+# if set, is the model those agents run on.
 set -euo pipefail
 
 : "${SELAN_TOKEN:?SELAN_TOKEN is not set: export a selanct_ API token, minted by an owner at control.selan.ai > Settings > API tokens}"
@@ -58,14 +59,30 @@ settings="$(printf 'header = "Authorization: Bearer %s"\n' "$SELAN_TOKEN" \
   | curl -fsS --max-time 15 -K - "$SELAN_GATEWAY/selan/settings")" \
   || { echo "could not read company settings from $SELAN_GATEWAY/selan/settings" >&2; exit 1; }
 
+# The model the host picked (Selan's Agents tab), checked against the company's picker models
+# before Paperclip starts. Unset, agents keep the model Paperclip gives them.
+SELAN_APP_MODEL="${SELAN_APP_MODEL:-}"
+if [ -n "$SELAN_APP_MODEL" ]; then
+  SELAN_SETTINGS="$settings" node -e '
+const ids = (JSON.parse(process.env.SELAN_SETTINGS).pickerModels || []).map((m) => m.id);
+process.exit(ids.includes(process.argv[1]) ? 0 : 1);
+' "$SELAN_APP_MODEL" \
+    || { echo "SELAN_APP_MODEL $SELAN_APP_MODEL is not one of the company's models in its Selan settings" >&2; exit 1; }
+fi
+
 # Paperclip's local REST API: one pass over every company, then (with "watch") again every
 # 15 seconds. SELAN_TOKEN is written into the connection on the first pass only. The loop
 # ends when run.sh or the server it started is gone (a SIGKILL of run.sh runs no trap).
+# SELAN_APP_MODEL goes into an agent's adapterConfig.model the first time this launch sees
+# the agent on the Selan connection: all of them on the first pass, then each agent added or
+# bound later. A model someone picks in Paperclip afterwards stays until the next launch.
 SYNC_PROGRAM='
 const [api, gateway, mode, ...pids] = process.argv.slice(1);
 const alive = (pid) => { try { process.kill(Number(pid), 0); return true; } catch (e) { return e.code === "EPERM"; } };
 const settings = JSON.parse(process.env.SELAN_SETTINGS);
 const NAME = "Selan";
+const MODEL = process.env.SELAN_APP_MODEL || "";
+const modelGiven = new Set();
 
 async function call(method, path, body) {
   const res = await fetch(api + path, {
@@ -115,9 +132,20 @@ async function syncCompany(company, writeKey) {
   for (const agent of await call("GET", "/companies/" + company + "/agents")) {
     const runtime = agent.runtimeConfig || {};
     const bound = runtime.aiConnection && runtime.aiConnection.connectionId;
-    if (agent.adapterType !== "claude_local" || (runtime.aiConnection && !dropped.has(bound))) continue;
-    await call("PATCH", "/agents/" + agent.id, { runtimeConfig: { ...runtime, aiConnection: binding } });
-    console.log("bound agent " + agent.name + " to the " + NAME + " connection");
+    if (agent.adapterType !== "claude_local") continue;
+    const bind = !runtime.aiConnection || dropped.has(bound);
+    const onSelan = bind || bound === connection.id;
+    const setModel = MODEL && onSelan && !modelGiven.has(agent.id) && (agent.adapterConfig || {}).model !== MODEL;
+    if (bind || setModel) {
+      await call("PATCH", "/agents/" + agent.id, {
+        ...(bind ? { runtimeConfig: { ...runtime, aiConnection: binding } } : {}),
+        ...(setModel ? { adapterConfig: { model: MODEL } } : {}),
+      });
+    }
+    // Only once the change has landed, so a failed PATCH is tried again on the next pass.
+    if (onSelan) modelGiven.add(agent.id);
+    if (bind) console.log("bound agent " + agent.name + " to the " + NAME + " connection");
+    if (setModel) console.log("agent " + agent.name + " runs on " + MODEL);
   }
 }
 
@@ -207,7 +235,7 @@ fi
 
 # Started here, not through a function, so watcher_pid is the node process itself. It is
 # given this script's pid and the server's, and exits on its own once either is gone.
-SELAN_SETTINGS="$settings" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" watch $$ $server_pid &
+SELAN_SETTINGS="$settings" SELAN_APP_MODEL="$SELAN_APP_MODEL" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" watch $$ $server_pid &
 watcher_pid=$!
 
 if [ -n "$SELAN_APP_PORT" ]; then

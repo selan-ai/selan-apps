@@ -23,6 +23,14 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/hermes/ins
 Everything after `run.sh` goes to `hermes`: `run.sh chat -m gpt-6-luna -q "hello"`. Needs `curl` and
 `git`; the installer fetches `uv` and Python itself if you have none.
 
+## The model
+
+`run.sh` writes Hermes's default model (`model.default` in `config.yaml`) at every launch: your
+company's first picker model, or `SELAN_APP_MODEL` when it is set ([the contract](../README.md#the-contract)).
+That is the model `chat` and the dashboard's Chat tab start with; a restart with another
+`SELAN_APP_MODEL` switches it. An id your company's settings do not list stops `run.sh` before
+Hermes starts. `-m` on the command line still wins for that one command.
+
 ## Behind Selan's proxy
 
 With `SELAN_APP_PORT` set ([the contract](../README.md#behind-a-proxy)) and no arguments, `run.sh`

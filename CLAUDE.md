@@ -13,9 +13,13 @@ Public catalog of third-party agent apps that run on a company's Selan accounts.
 ## Rules for every script
 
 - `#!/usr/bin/env bash`, `set -euo pipefail`, shellcheck-clean, readable top to bottom, macOS and Linux.
-- Inputs are `SELAN_TOKEN`, `SELAN_GATEWAY`, `SELAN_APP_HOME`, and, to serve behind Selan's proxy,
-  `SELAN_APP_PORT`, `SELAN_APP_PUBLIC_URL` and `SELAN_APP_PASSWORD`. Never invent another. With
-  `SELAN_APP_PORT` unset, the app answers on loopback only, exactly as before.
+- Inputs are `SELAN_TOKEN`, `SELAN_GATEWAY`, `SELAN_APP_HOME`, `SELAN_APP_MODEL`, and, to serve
+  behind Selan's proxy, `SELAN_APP_PORT`, `SELAN_APP_PUBLIC_URL` and `SELAN_APP_PASSWORD`. Never
+  invent another. With `SELAN_APP_PORT` unset, the app answers on loopback only, exactly as before.
+- `SELAN_APP_MODEL` is the model the app's agents use: an id among the `pickerModels` of
+  `$SELAN_GATEWAY/selan/settings`. Any other id makes `run.sh` exit non-zero with one line saying
+  so, before the app starts. Each launch applies it again, so a restart with another id switches.
+  Unset, nothing changes.
 - `SELAN_APP_PASSWORD`, only with `SELAN_APP_PORT`, is the app's own sign-in password, so the proxy
   can sign in for its members. An app with no sign-in ignores it. Like the token, it never lands on
   disk (a hash only if the app stores one) and never on an argument list.

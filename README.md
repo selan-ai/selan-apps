@@ -56,12 +56,19 @@ Every app has `install.sh`, `run.sh` and `README.md`, and an entry in `catalog.j
 | `SELAN_TOKEN` | the signed-in session's token, fresh for this launch | required |
 | `SELAN_GATEWAY` | the channel's proxy base URL | `https://gw.selan.ai` |
 | `SELAN_APP_HOME` | `~/.selan/apps/<name>` (`~/.selan-dev/apps/<name>` on dev) | `~/.selan/apps/<name>` |
+| `SELAN_APP_MODEL` | not set | not set: the app's own default model |
 | `SELAN_APP_PORT` | not set | not set: the app answers on `127.0.0.1` only |
 | `SELAN_APP_PUBLIC_URL` | not set | not set |
 | `SELAN_APP_PASSWORD` | not set | not set: an app with a sign-in makes its own password |
 
 The scripts read the company's models, connectors and plugin marketplaces from
 `$SELAN_GATEWAY/selan/settings` with the token, so both ways in get the same ones.
+
+`SELAN_APP_MODEL` is the model the app's agents use, such as `claude-opus-5-5`: one of the
+`pickerModels` in those settings. Any other id makes `run.sh` exit non-zero with one line saying
+so, before the app starts. It is applied at every launch, so starting again with another id
+switches the app over, agents the app already has included. Selan's Agents tab sets it from the
+model a person picks. Each app's README says what it does with it.
 
 - `install.sh` installs the app into `$SELAN_APP_HOME`, is safe to run again, and leaves a copy of
   `run.sh` there.
@@ -77,7 +84,8 @@ The scripts read the company's models, connectors and plugin marketplaces from
 ## Behind a proxy
 
 Selan's cloud (the Agents tab in control) runs an app's `run.sh` on a VM, with a Selan proxy in
-front that lets only the company's signed-in members through. It sets up to three more variables:
+front that lets only the company's signed-in members through. It sets `SELAN_APP_MODEL` to the
+model picked there (changing it restarts the app with the new one), and up to three more variables:
 
 - `SELAN_APP_PORT`: the app answers on `0.0.0.0` on this port, and `run.sh` opens no browser.
   Unset, nothing changes: loopback only.

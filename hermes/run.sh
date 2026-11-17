@@ -8,7 +8,8 @@
 #
 # Needs SELAN_TOKEN. Asks the gateway for the company's models, connectors and plugin
 # marketplaces, writes Hermes's config.yaml from them (references to the token, never
-# the token), and starts hermes with the token in its environment only.
+# the token), and starts hermes with the token in its environment only. SELAN_APP_MODEL,
+# if set, is the default model instead of the company's first.
 set -euo pipefail
 
 : "${SELAN_TOKEN:?SELAN_TOKEN is not set: export a selanct_ API token, minted by an owner at control.selan.ai > Settings > API tokens}"
@@ -65,6 +66,17 @@ settings="$(printf 'header = "Authorization: Bearer %s"\n' "$SELAN_TOKEN" \
   | curl -fsS --max-time 15 -K - "$SELAN_GATEWAY/selan/settings")" \
   || { echo "could not read company settings from $SELAN_GATEWAY/selan/settings" >&2; exit 1; }
 
+# The model the host picked (Selan's Agents tab), checked against the company's picker models
+# before anything starts. Unset, Hermes defaults to the first of them.
+SELAN_APP_MODEL="${SELAN_APP_MODEL:-}"
+if [ -n "$SELAN_APP_MODEL" ]; then
+  printf '%s' "$settings" | "$PYTHON" -I -c '
+import json, sys
+sys.exit(0 if sys.argv[1] in [m.get("id") for m in json.load(sys.stdin).get("pickerModels", [])] else 1)
+' "$SELAN_APP_MODEL" \
+    || { echo "SELAN_APP_MODEL $SELAN_APP_MODEL is not one of the company's models in its Selan settings" >&2; exit 1; }
+fi
+
 # Plugin marketplaces the company switched on for the CLI: a shallow clone each.
 while IFS=$'\t' read -r name url; do
   [ -n "$name" ] || continue
@@ -86,7 +98,7 @@ for m in json.load(sys.stdin).get("pluginMarketplaces", []):
 printf '%s' "$settings" | "$PYTHON" -I -c '
 import json, os, sys
 settings = json.load(sys.stdin)
-gateway, home, markets = sys.argv[1:4]
+gateway, home, markets, model = sys.argv[1:5]
 servers = {}
 for c in settings.get("connectors", []):
     host = c["url"].split("/")[2].split(":")[0] if c["url"].startswith("https://") else ""
@@ -107,8 +119,8 @@ for m in settings.get("pluginMarketplaces", []):
                 dirs.append(path)
 config = {"model": {"provider": "anthropic", "base_url": gateway + "/anthropic"}}
 models = settings.get("pickerModels", [])
-if models:
-    config["model"]["default"] = models[0]["id"]
+if model or models:
+    config["model"]["default"] = model or models[0]["id"]
 if servers:
     config["mcp_servers"] = servers
 if dirs:
@@ -116,7 +128,7 @@ if dirs:
 # JSON is YAML.
 with open(os.path.join(home, "config.yaml"), "w") as f:
     json.dump(config, f, indent=2)
-' "$SELAN_GATEWAY" "$HERMES_HOME" "$APP_HOME/marketplaces"
+' "$SELAN_GATEWAY" "$HERMES_HOME" "$APP_HOME/marketplaces" "$SELAN_APP_MODEL"
 
 export ANTHROPIC_BASE_URL="$SELAN_GATEWAY/anthropic"
 export ANTHROPIC_API_KEY="$SELAN_TOKEN"
