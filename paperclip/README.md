@@ -40,6 +40,22 @@ and `npm`, and Claude Code (`claude`) on your PATH for the agents. Arguments aft
    while it runs is picked up within 15 seconds; an agent you point at another connection is left
    alone. Paperclip's own LLM calls use the same connections.
 
+## Behind Selan's proxy
+
+With `SELAN_APP_PORT` set ([the contract](../README.md#behind-a-proxy)), Paperclip still runs in
+its `local_trusted` mode on `127.0.0.1:3100`, as on your own machine: every request is the board's
+admin, with no sign-in. That mode refuses to listen anywhere but loopback, so `run.sh` adds a
+plain TCP forwarder on `0.0.0.0:$SELAN_APP_PORT` (websockets included) and opens no browser. The
+proxy's sign-in is the only one: every member it lets through is Paperclip's admin, and Paperclip
+does not tell them apart.
+
+- `SELAN_APP_PUBLIC_URL` becomes `PAPERCLIP_PUBLIC_URL`, so Paperclip's links use it and its
+  hostname check lets that host in. The proxy sends it as `Host` (or `X-Forwarded-Host`); any
+  other host gets 403.
+- Local mode skips Paperclip's own cross-site check, so the proxy refuses a request that changes
+  something when its `Origin` is not the app's own address.
+- The sync loop goes on talking to `127.0.0.1` with no credentials, as before.
+
 ## What lands where
 
 Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/paperclip`): `node_modules/` (the

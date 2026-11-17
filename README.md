@@ -56,6 +56,8 @@ Every app has `install.sh`, `run.sh` and `README.md`, and an entry in `catalog.j
 | `SELAN_TOKEN` | the signed-in session's token, fresh for this launch | required |
 | `SELAN_GATEWAY` | the channel's proxy base URL | `https://gw.selan.ai` |
 | `SELAN_APP_HOME` | `~/.selan/apps/<name>` (`~/.selan-dev/apps/<name>` on dev) | `~/.selan/apps/<name>` |
+| `SELAN_APP_PORT` | not set | not set: the app answers on `127.0.0.1` only |
+| `SELAN_APP_PUBLIC_URL` | not set | not set |
 
 The scripts read the company's models, connectors and plugin marketplaces from
 `$SELAN_GATEWAY/selan/settings` with the token, so both ways in get the same ones.
@@ -70,6 +72,21 @@ The scripts read the company's models, connectors and plugin marketplaces from
 - Claude served from a Claude subscription: Hermes gets Anthropic's "Third-party apps now draw from
   your extra usage" message (HTTP 400) instead of an answer. Paperclip's Claude Code agents are
   answered normally.
+
+## Behind a proxy
+
+Selan's cloud (the Agents tab in control) runs an app's `run.sh` on a VM, with a Selan proxy in
+front that lets only the company's signed-in members through. It sets two more variables:
+
+- `SELAN_APP_PORT`: the app answers on `0.0.0.0` on this port, and `run.sh` opens no browser.
+  Unset, nothing changes: loopback only.
+- `SELAN_APP_PUBLIC_URL`: the `https://` address people open it at, such as
+  `https://paperclip-7f3k.agents.selan.ai`. Only with `SELAN_APP_PORT`, and with no path: each app
+  is served at the root of its own hostname.
+
+**Whoever reaches that port reaches the app.** Set them only behind a proxy that authenticates,
+and keep the port closed to everything else. Paperclip lets anyone through it in as its admin;
+Hermes asks for its dashboard password. Each app's README says what it serves there.
 
 `selan app <name> [args]` reads this repository at `main`, prints the commit, shows the scripts and
 asks `[Y/n]` the first time and whenever they changed, checks `needs`, runs `install.sh`, then

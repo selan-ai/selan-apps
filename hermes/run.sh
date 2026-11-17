@@ -2,6 +2,8 @@
 # shellcheck disable=SC2016 # the single-quoted programs for python and node are meant to stay unexpanded
 # Starts Hermes Agent on your company's Selan accounts. Arguments go to hermes:
 #   run.sh chat            run.sh chat -m claude-sonnet-5-5 -q "hello"
+# With SELAN_APP_PORT set and no arguments, it serves Hermes's web dashboard on
+# 0.0.0.0:$SELAN_APP_PORT instead, for Selan's proxy.
 #
 # Needs SELAN_TOKEN. Asks the gateway for the company's models, connectors and plugin
 # marketplaces, writes Hermes's config.yaml from them (references to the token, never
@@ -12,6 +14,23 @@ set -euo pipefail
 SELAN_GATEWAY="${SELAN_GATEWAY:-https://gw.selan.ai}"
 SELAN_GATEWAY="${SELAN_GATEWAY%/}"
 APP_HOME="${SELAN_APP_HOME:-$HOME/.selan/apps/hermes}"
+
+# Serving behind Selan's proxy: whoever reaches SELAN_APP_PORT reaches the dashboard's
+# sign-in, so it is set only behind a proxy that signs people in.
+SELAN_APP_PORT="${SELAN_APP_PORT:-}"
+SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL:-}"
+SELAN_APP_PUBLIC_URL="${SELAN_APP_PUBLIC_URL%/}"
+if [ -n "$SELAN_APP_PORT" ]; then
+  { [[ "$SELAN_APP_PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$SELAN_APP_PORT" -le 65535 ]; } \
+    || { echo "SELAN_APP_PORT is not a port number: $SELAN_APP_PORT" >&2; exit 1; }
+elif [ -n "$SELAN_APP_PUBLIC_URL" ]; then
+  echo "SELAN_APP_PUBLIC_URL is set without SELAN_APP_PORT" >&2
+  exit 1
+fi
+if [ -n "$SELAN_APP_PUBLIC_URL" ]; then
+  [[ "$SELAN_APP_PUBLIC_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] \
+    || { echo "SELAN_APP_PUBLIC_URL must be https://<host>, with no path: $SELAN_APP_PUBLIC_URL" >&2; exit 1; }
+fi
 
 PYTHON="$APP_HOME/venv/bin/python"
 HERMES="$APP_HOME/venv/bin/hermes"
@@ -24,7 +43,7 @@ mkdir -p "$HERMES_HOME" "$APP_HOME/marketplaces" "$APP_HOME/xdg"
 # What hermes and the tools it starts would otherwise keep under ~/.local, ~/.cache and ~/Library.
 export XDG_DATA_HOME="$APP_HOME/xdg/data" XDG_STATE_HOME="$APP_HOME/xdg/state"
 export XDG_CACHE_HOME="$APP_HOME/xdg/cache" XDG_CONFIG_HOME="$APP_HOME/xdg/config" PIP_CACHE_DIR="$APP_HOME/xdg/cache/pip"
-export PYTHONPYCACHEPREFIX="$APP_HOME/xdg/cache/pycache"
+export PYTHONPYCACHEPREFIX="$APP_HOME/xdg/cache/pycache" npm_config_cache="$APP_HOME/xdg/cache/npm"
 
 # A Hermes gateway daemon that an earlier launch left running keeps that launch's
 # environment, token included, and a new launch would talk to it. Stop it first.
@@ -91,4 +110,28 @@ with open(os.path.join(home, "config.yaml"), "w") as f:
 export ANTHROPIC_BASE_URL="$SELAN_GATEWAY/anthropic"
 export ANTHROPIC_API_KEY="$SELAN_TOKEN"
 export SELAN_HERMES_TOKEN="$SELAN_TOKEN"
+
+if [ -n "$SELAN_APP_PORT" ] && [ "$#" -eq 0 ]; then
+  # Hermes refuses an unauthenticated dashboard on any address but loopback (--insecure no
+  # longer skips that), and it has no way to trust a proxy's sign-in. So it gets its own
+  # password provider: user "selan", a password made once here and kept in
+  # dashboard/password, and a signing key in dashboard/secret so sign-ins outlive a restart.
+  command -v npm >/dev/null 2>&1 || { echo "the dashboard builds its web UI with npm: install node and npm" >&2; exit 1; }
+  DASHBOARD="$APP_HOME/dashboard"
+  mkdir -p "$DASHBOARD"
+  chmod 700 "$DASHBOARD"
+  for file in password secret; do
+    [ -s "$DASHBOARD/$file" ] \
+      || (umask 077 && "$PYTHON" -I -c 'import secrets; print(secrets.token_urlsafe(24))' >"$DASHBOARD/$file")
+  done
+  export HERMES_DASHBOARD_BASIC_AUTH_USERNAME=selan
+  HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="$(cat "$DASHBOARD/password")"
+  HERMES_DASHBOARD_BASIC_AUTH_SECRET="$(cat "$DASHBOARD/secret")"
+  export HERMES_DASHBOARD_BASIC_AUTH_PASSWORD HERMES_DASHBOARD_BASIC_AUTH_SECRET
+  [ -z "$SELAN_APP_PUBLIC_URL" ] || export HERMES_DASHBOARD_PUBLIC_URL="$SELAN_APP_PUBLIC_URL"
+  # The OpenAI-compatible API server (8642) stays on loopback whatever the config says.
+  export API_SERVER_HOST=127.0.0.1
+  echo "Hermes dashboard on 0.0.0.0:$SELAN_APP_PORT: sign in as selan with the password in $DASHBOARD/password"
+  exec "$HERMES" dashboard --host 0.0.0.0 --port "$SELAN_APP_PORT" --no-open
+fi
 exec "$HERMES" "$@"
