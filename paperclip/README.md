@@ -27,7 +27,9 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/paperclip/
 ```
 
 The UI opens at http://127.0.0.1:3100 (`PAPERCLIP_PORT` changes the port, for the server and the sync). Needs `curl`, `node`
-and `npm`, and Claude Code (`claude`) on your PATH for the agents. Arguments after `run.sh` go to
+and `npm`. The agents run Claude Code: a `claude` already on your PATH is used, and on a machine with
+none, the copy `install.sh` pins (in `$SELAN_APP_HOME/claude-code`). Paperclip's Test, which
+onboarding passes before it hires the first agent, needs one or the other. Arguments after `run.sh` go to
 `paperclipai run`. Stop it with Ctrl-C; if `run.sh` is killed any other way, even with `kill -9`, the server and its database stop within a few seconds.
 
 ## What `run.sh` does
@@ -65,14 +67,17 @@ does not tell them apart.
   other host gets 403.
 - Local mode skips Paperclip's own cross-site check, so the proxy refuses a request that changes
   something when its `Origin` is not the app's own address.
-- The sync loop goes on talking to `127.0.0.1` with no credentials, as before.
+- The sync loop goes on talking to `127.0.0.1` with no credentials, as before, and so do the
+  agents: `PAPERCLIP_API_URL` stays `http://127.0.0.1:3100`, since the public address lets only
+  the members the proxy signed in through.
 - `SELAN_APP_PASSWORD` is ignored: there is no Paperclip sign-in for it to open. `run.sh` drops it
   from the environment, so Paperclip and its agents never see it.
 
 ## What lands where
 
 Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/paperclip`): `node_modules/` (the
-`paperclipai` version pinned in `install.sh`), `data/` (Paperclip's database, keys and files),
+`paperclipai` version pinned in `install.sh`), `claude-code/` (the Claude Code it pins, used when
+your PATH has none), `data/` (Paperclip's database, keys and files),
 `npm-cache/`, `xdg/`, and `run.sh`. Nothing is installed globally. Claude Code itself keeps its
 sessions in its own `~/.claude`, as it always does.
 
