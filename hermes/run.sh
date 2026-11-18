@@ -121,6 +121,11 @@ config = {"model": {"provider": "anthropic", "base_url": gateway + "/anthropic"}
 models = settings.get("pickerModels", [])
 if model or models:
     config["model"]["default"] = model or models[0]["id"]
+# Hermes names each session with a side call that switches thinking off, and Claude Sonnet 5.5
+# and Opus 5.5 refuse that with HTTP 400. Titles go to the first Haiku picker model, which takes it.
+haiku = next((m["id"] for m in models if m.get("id", "").startswith("claude-haiku-")), "")
+if haiku:
+    config["auxiliary"] = {"title_generation": {"model": haiku}}
 if servers:
     config["mcp_servers"] = servers
 if dirs:
