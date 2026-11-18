@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installs the paperclipai npm package into $SELAN_APP_HOME (not -g, and not a fresh
 # npx download at every start), and Claude Code beside it in $SELAN_APP_HOME/claude-code,
-# which Paperclip's claude_local agents run on a machine with no claude of its own.
+# which Paperclip's claude_local agents run (run.sh points them at it), as does its onboarding
+# Test on a machine with no claude of its own.
 # Safe to run again; it does nothing when these versions are already there.
 set -euo pipefail
 

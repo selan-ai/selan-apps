@@ -29,7 +29,8 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/paperclip/
 The UI opens at http://127.0.0.1:3100 (`PAPERCLIP_PORT` changes the port, for the server and the sync). Needs `curl`, `node`
 and `npm`. The agents run Claude Code: a `claude` already on your PATH is used, and on a machine with
 none, the copy `install.sh` pins (in `$SELAN_APP_HOME/claude-code`). Paperclip's Test, which
-onboarding passes before it hires the first agent, needs one or the other. Arguments after `run.sh` go to
+onboarding passes before it hires the first agent, needs one or the other. An agent's own runs
+always use the pinned copy (step 5 below). Arguments after `run.sh` go to
 `paperclipai run`. Stop it with Ctrl-C; if `run.sh` is killed any other way, even with `kill -9`, the server and its database stop within a few seconds.
 
 ## What `run.sh` does
@@ -48,6 +49,13 @@ onboarding passes before it hires the first agent, needs one or the other. Argum
    which sets `SELAN_APP_MODEL` again. An id your company's settings do not list stops `run.sh`
    before Paperclip starts. Unset, agents keep their model (Paperclip's default for a
    `claude_local` agent with none is `claude-opus-5`).
+5. Writes `CLAUDE_CODE_EXECUTABLE`, the Claude Code `install.sh` pins, into the env
+   (`adapterConfig.env`) of every `claude_local` agent that has none there, within 15 seconds for
+   one added later. Paperclip runs an agent through its Claude ACP adapter, which otherwise starts
+   the Claude Code bundled with its Agent SDK (2.1.257 at the pinned `paperclipai`), and Anthropic
+   refuses Opus 5.5 to anything older than 2.1.280. Paperclip hands its agents only a short list
+   of its own environment's variables, so the agent's env is the one place it takes effect. A
+   value already there, yours or this script's, is kept.
 
 Paperclip (at the version `install.sh` pins) has no company or instance setting for the model of
 new `claude_local` agents: an agent runs on its own `adapterConfig.model`, and the AI connection
@@ -76,8 +84,8 @@ does not tell them apart.
 ## What lands where
 
 Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/paperclip`): `node_modules/` (the
-`paperclipai` version pinned in `install.sh`), `claude-code/` (the Claude Code it pins, used when
-your PATH has none), `data/` (Paperclip's database, keys and files),
+`paperclipai` version pinned in `install.sh`), `claude-code/` (the Claude Code it pins, which the agents
+run, as does the Test when your PATH has none), `data/` (Paperclip's database, keys and files),
 `npm-cache/`, `xdg/`, and `run.sh`. Nothing is installed globally. Claude Code itself keeps its
 sessions in its own `~/.claude`, as it always does.
 
