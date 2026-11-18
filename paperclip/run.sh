@@ -57,11 +57,18 @@ export XDG_CACHE_HOME="$APP_HOME/xdg/cache" XDG_CONFIG_HOME="$APP_HOME/xdg/confi
 export PYTHONPYCACHEPREFIX="$APP_HOME/xdg/cache/pycache" npm_config_devdir="$APP_HOME/xdg/cache/node-gyp"
 export npm_config_cache="$APP_HOME/npm-cache" BROWSER=none
 
-# Paperclip runs `claude` for its claude_local agents and for the Test that onboarding passes
-# before it hires one. A machine with a claude of its own keeps using it; one with none (Selan's
-# hosted VM) uses the copy install.sh pinned here, which is left at that version.
-if [ -x "$APP_HOME/claude-code/node_modules/.bin/claude" ]; then
+# Paperclip runs `claude` for the Test that onboarding passes before it hires an agent. A
+# machine with a claude of its own keeps using it there; one with none (Selan's hosted VM) uses
+# the copy install.sh pinned here, which is left at that version.
+# An agent's run is another matter: Paperclip's Claude ACP adapter starts the Claude Code its
+# Agent SDK bundles (2.1.257 with paperclipai 2026.1023.0, too old for Opus 5.5), unless the
+# agent's env names one in CLAUDE_CODE_EXECUTABLE. Paperclip passes its agents only a short list
+# of the server's own variables, so the sync below writes it into each claude_local agent's env.
+CLAUDE_CODE="$APP_HOME/claude-code/node_modules/.bin/claude"
+if [ -x "$CLAUDE_CODE" ]; then
   export PATH="$PATH:$APP_HOME/claude-code/node_modules/.bin" DISABLE_AUTOUPDATER=1
+else
+  CLAUDE_CODE=""
 fi
 
 # The token goes to curl on stdin, so it is not in a process listing.
@@ -86,6 +93,9 @@ fi
 # SELAN_APP_MODEL goes into an agent's adapterConfig.model the first time this launch sees
 # the agent on the Selan connection: all of them on the first pass, then each agent added or
 # bound later. A model someone picks in Paperclip afterwards stays until the next launch.
+# Every claude_local agent, on any connection, whose env has no CLAUDE_CODE_EXECUTABLE gets the
+# pinned Claude Code there. A value already there is kept: Paperclip shows env values to its API
+# only as "***REDACTED***", so this cannot tell its own value from one someone set.
 SYNC_PROGRAM='
 const [api, gateway, mode, ...pids] = process.argv.slice(1);
 const alive = (pid) => { try { process.kill(Number(pid), 0); return true; } catch (e) { return e.code === "EPERM"; } };
@@ -93,6 +103,7 @@ const settings = JSON.parse(process.env.SELAN_SETTINGS);
 const NAME = "Selan";
 const MODEL = process.env.SELAN_APP_MODEL || "";
 const modelGiven = new Set();
+const CLAUDE_CODE = process.env.SELAN_CLAUDE_CODE || "";
 
 async function call(method, path, body) {
   const res = await fetch(api + path, {
@@ -146,16 +157,24 @@ async function syncCompany(company, writeKey) {
     const bind = !runtime.aiConnection || dropped.has(bound);
     const onSelan = bind || bound === connection.id;
     const setModel = MODEL && onSelan && !modelGiven.has(agent.id) && (agent.adapterConfig || {}).model !== MODEL;
-    if (bind || setModel) {
+    // Paperclip merges adapterConfig one level deep, so env is sent whole. Its redacted values
+    // come back as they were: Paperclip puts the stored value back for "***REDACTED***".
+    const env = (agent.adapterConfig || {}).env || {};
+    const setClaude = CLAUDE_CODE && !Object.prototype.hasOwnProperty.call(env, "CLAUDE_CODE_EXECUTABLE");
+    if (bind || setModel || setClaude) {
       await call("PATCH", "/agents/" + agent.id, {
         ...(bind ? { runtimeConfig: { ...runtime, aiConnection: binding } } : {}),
-        ...(setModel ? { adapterConfig: { model: MODEL } } : {}),
+        ...(setModel || setClaude ? { adapterConfig: {
+          ...(setModel ? { model: MODEL } : {}),
+          ...(setClaude ? { env: { ...env, CLAUDE_CODE_EXECUTABLE: { type: "plain", value: CLAUDE_CODE } } } : {}),
+        } } : {}),
       });
     }
     // Only once the change has landed, so a failed PATCH is tried again on the next pass.
     if (onSelan) modelGiven.add(agent.id);
     if (bind) console.log("bound agent " + agent.name + " to the " + NAME + " connection");
     if (setModel) console.log("agent " + agent.name + " runs on " + MODEL);
+    if (setClaude) console.log("agent " + agent.name + " runs Claude Code from " + CLAUDE_CODE);
   }
 }
 
@@ -245,7 +264,7 @@ fi
 
 # Started here, not through a function, so watcher_pid is the node process itself. It is
 # given this script's pid and the server's, and exits on its own once either is gone.
-SELAN_SETTINGS="$settings" SELAN_APP_MODEL="$SELAN_APP_MODEL" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" watch $$ $server_pid &
+SELAN_SETTINGS="$settings" SELAN_APP_MODEL="$SELAN_APP_MODEL" SELAN_CLAUDE_CODE="$CLAUDE_CODE" node -e "$SYNC_PROGRAM" "$API" "$SELAN_GATEWAY" watch $$ $server_pid &
 watcher_pid=$!
 
 if [ -n "$SELAN_APP_PORT" ]; then
