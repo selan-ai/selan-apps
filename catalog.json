@@ -18,6 +18,16 @@
         "node",
         "npm"
       ]
+    },
+    {
+      "name": "openhands",
+      "description": "OpenHands Agent Canvas, a web app for coding agents and their automations",
+      "homepage": "https://github.com/OpenHands/OpenHands",
+      "needs": [
+        "curl",
+        "node",
+        "npm"
+      ]
     }
   ]
 }

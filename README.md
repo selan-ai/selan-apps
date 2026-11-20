@@ -8,6 +8,7 @@ these same scripts; without it you run them yourself.
 |---|---|---|
 | [hermes](hermes/) | Hermes Agent by Nous Research, a terminal agent | `selan app hermes chat` |
 | [paperclip](paperclip/) | Paperclip, a web app for running a company of AI agents | `selan app paperclip` |
+| [openhands](openhands/) | OpenHands Agent Canvas, a web app for coding agents and their automations | `selan app openhands` |
 
 `selan app list` prints the catalog, which is [`catalog.json`](catalog.json).
 
@@ -21,8 +22,8 @@ curl -fsSL https://raw.githubusercontent.com/selan-ai/selan-apps/main/hermes/ins
 ~/.selan/apps/hermes/run.sh chat
 ```
 
-Replace `hermes` with `paperclip` (and drop `chat`) for the other app. Read the script before you
-run it; that is what this repository is for.
+Replace `hermes` with `paperclip` or `openhands` (and drop `chat`) for the other apps. Read the
+script before you run it; that is what this repository is for.
 
 ## Install anywhere
 
@@ -43,8 +44,8 @@ Each runs the same `install.sh` and `run.sh` as above and shows you the commit a
 first. A server cannot use your session, so a remote deploy uses a long-lived API token named
 after the server. An owner creates it in control under Settings → API tokens, and you paste it into one command
 in your own terminal that sends it to Secret Manager or a root-only file; Claude never sees it.
-Removing the deploy means revoking it there. Paperclip's UI is never put on the internet: you
-reach it by SSH tunnel.
+Removing the deploy means revoking it there. Paperclip's and OpenHands' UIs are never put on the
+internet: you reach them by SSH tunnel.
 
 ## The contract
 
@@ -78,8 +79,8 @@ model a person picks. Each app's README says what it does with it.
   app's README says so in its first lines.
 - The endpoint is the Anthropic Messages format at `$SELAN_GATEWAY/anthropic`.
 - Claude served from a Claude subscription: Hermes gets Anthropic's "Third-party apps now draw from
-  your extra usage" message (HTTP 400) instead of an answer. Paperclip's Claude Code agents are
-  answered normally.
+  your extra usage" message (HTTP 400) instead of an answer. Paperclip's Claude Code agents and
+  OpenHands are answered normally.
 
 ## Behind a proxy
 
@@ -95,12 +96,12 @@ model picked there (changing it restarts the app with the new one), and up to th
 - `SELAN_APP_PASSWORD`: the password of the app's own sign-in, so the proxy signs in for each member
   and nobody sees a second login. Only with `SELAN_APP_PORT`. Unset, an app with a sign-in makes a
   password once and keeps it in `$SELAN_APP_HOME`, as before. It is never written to disk (at most
-  a hash, if the app keeps one) and never put on an argument list. Hermes uses it; Paperclip has no
-  sign-in and ignores it.
+  a hash, if the app keeps one) and never put on an argument list. Hermes uses it; Paperclip and
+  OpenHands have no sign-in and ignore it.
 
 **Whoever reaches that port reaches the app.** Set them only behind a proxy that authenticates,
-and keep the port closed to everything else. Paperclip lets anyone through it in as its admin;
-Hermes asks for its dashboard password (`SELAN_APP_PASSWORD`, or the one it made). Each app's README says what it serves there.
+and keep the port closed to everything else. Paperclip lets anyone through it in as its admin,
+and OpenHands as its owner, with a shell; Hermes asks for its dashboard password (`SELAN_APP_PASSWORD`, or the one it made). Each app's README says what it serves there.
 
 `selan app <name> [args]` reads this repository at `main`, prints the commit, shows the scripts and
 asks `[Y/n]` the first time and whenever they changed, checks `needs`, runs `install.sh`, then

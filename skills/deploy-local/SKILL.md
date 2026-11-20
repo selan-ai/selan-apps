@@ -1,6 +1,6 @@
 ---
 name: deploy-local
-description: Use when someone wants to run an app from the Selan apps catalog (Hermes, Paperclip) on this machine, once or kept running as a service. Runs the catalog's own install.sh and run.sh; with the selan CLI that is `selan app <name>`.
+description: Use when someone wants to run an app from the Selan apps catalog (Hermes, Paperclip, OpenHands) on this machine, once or kept running as a service. Runs the catalog's own install.sh and run.sh; with the selan CLI that is `selan app <name>`.
 allowed-tools: Bash Read WebFetch
 ---
 
@@ -25,6 +25,7 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
      ```
      Run the copy `install.sh` leaves; piping `run.sh` would leave Hermes without a terminal.
    - Hermes: `chat` for a terminal chat. Paperclip: no arguments; its UI is http://127.0.0.1:3100.
+     OpenHands: no arguments; its UI is http://127.0.0.1:8000.
 4. **Always on, only if the person asks.** A service has no signed-in session, so it needs a
    long-lived token.
    - Claude never sees it. Tell the person an owner mints an API token in control under Settings → API
@@ -44,7 +45,7 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
      set -a; . "$HOME/.selan/apps/$APP/service.env"; set +a
      exec "$HOME/.selan/apps/$APP/run.sh" "$@"
      ```
-     with arguments `gateway run` for Hermes and none for Paperclip (`chmod +x`).
+     with arguments `gateway run` for Hermes and none for Paperclip or OpenHands (`chmod +x`).
    - **macOS:** `~/Library/LaunchAgents/ai.selan.apps.<app>.plist` with `ProgramArguments` the
      wrapper (and its arguments), `RunAtLoad` and `KeepAlive` true, `StandardOutPath` and
      `StandardErrorPath` `~/.selan/apps/<app>/service.log`. Then
@@ -55,8 +56,9 @@ its own `install.sh` and `run.sh`. This skill never repeats their steps; it only
      survives logout.
    - Check it: `launchctl print gui/$(id -u)/ai.selan.apps.<app>` or `systemctl --user status`, and the
      log. Hermes needs a chat platform in `~/.selan/apps/hermes/home/.env` to do anything as a
-     gateway (see deploy-google-cloud, Hermes). Paperclip answers on http://127.0.0.1:3100.
+     gateway (see deploy-google-cloud, Hermes). Paperclip answers on http://127.0.0.1:3100,
+     OpenHands on http://127.0.0.1:8000.
 5. **Remove it.** `launchctl bootout gui/$(id -u)/ai.selan.apps.<app>` and delete the plist, or
    `systemctl --user disable --now selan-<app>` and delete the unit; delete
-   `~/.selan/apps/<app>` (Paperclip's database is in it); tell the person to revoke the
+   `~/.selan/apps/<app>` (Paperclip's database and OpenHands' conversations are in it); tell the person to revoke the
    token in control under Settings → API tokens.
