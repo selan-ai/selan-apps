@@ -121,11 +121,6 @@ config = {"model": {"provider": "anthropic", "base_url": gateway + "/anthropic"}
 models = settings.get("pickerModels", [])
 if model or models:
     config["model"]["default"] = model or models[0]["id"]
-# Hermes names each session with a short side call, which goes to the first Haiku picker model:
-# cheaper and faster there than on the chat model.
-haiku = next((m["id"] for m in models if m.get("id", "").startswith("claude-haiku-")), "")
-if haiku:
-    config["auxiliary"] = {"title_generation": {"model": haiku}}
 if servers:
     config["mcp_servers"] = servers
 if dirs:

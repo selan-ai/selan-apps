@@ -31,10 +31,6 @@ That is the model `chat` and the dashboard's Chat tab start with; a restart with
 `SELAN_APP_MODEL` switches it. An id your company's settings do not list stops `run.sh` before
 Hermes starts. `-m` on the command line still wins for that one command.
 
-Session titles come from a short side call, so `run.sh` also sets `auxiliary.title_generation.model`
-to your company's first Claude Haiku picker model, which is cheaper and faster for it. With no Haiku
-listed, titles use the chat model, as Hermes does by default.
-
 ## Behind Selan's proxy
 
 With `SELAN_APP_PORT` set ([the contract](../README.md#behind-a-proxy)) and no arguments, `run.sh`
