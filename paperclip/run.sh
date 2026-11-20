@@ -8,9 +8,9 @@
 # Paperclip keeps AI connections in its own database, so SELAN_TOKEN is stored there
 # (sealed with Paperclip's own key file) as the connection's API key. This script
 # creates that connection in every company Paperclip has, updates its key at each launch
-# (never a second connection), binds every claude_local agent that has no AI connection
-# to it, and does the same for companies and agents added while it runs. SELAN_APP_MODEL,
-# if set, is the model those agents run on.
+# (never a second connection), binds every Claude agent (claude_local, or Paperclip's Runner
+# with its Claude harness) that has no AI connection to it, and does the same for companies
+# and agents added while it runs. SELAN_APP_MODEL, if set, is the model those agents run on.
 set -euo pipefail
 
 : "${SELAN_TOKEN:?SELAN_TOKEN is not set: export a selanct_ API token, minted by an owner at control.selan.ai > Settings > API tokens}"
@@ -61,9 +61,10 @@ export npm_config_cache="$APP_HOME/npm-cache" BROWSER=none
 # machine with a claude of its own keeps using it there; one with none (Selan's hosted VM) uses
 # the copy install.sh pinned here, which is left at that version.
 # An agent's run is another matter: Paperclip's Claude ACP adapter starts the Claude Code its
-# Agent SDK bundles (2.1.257 with paperclipai 2026.1023.0, too old for Opus 5.5), unless the
+# Agent SDK bundles (2.1.257 with paperclipai 2026.1117.0, too old for Opus 5.5), unless the
 # agent's env names one in CLAUDE_CODE_EXECUTABLE. Paperclip passes its agents only a short list
 # of the server's own variables, so the sync below writes it into each claude_local agent's env.
+# A Runner agent (what onboarding hires) runs the Claude Code Paperclip pins and checks by digest.
 CLAUDE_CODE="$APP_HOME/claude-code/node_modules/.bin/claude"
 if [ -x "$CLAUDE_CODE" ]; then
   export PATH="$PATH:$APP_HOME/claude-code/node_modules/.bin" DISABLE_AUTOUPDATER=1
@@ -153,14 +154,15 @@ async function syncCompany(company, writeKey) {
   for (const agent of await call("GET", "/companies/" + company + "/agents")) {
     const runtime = agent.runtimeConfig || {};
     const bound = runtime.aiConnection && runtime.aiConnection.connectionId;
-    if (agent.adapterType !== "claude_local") continue;
+    const runner = agent.adapterType === "paperclip_runner" && (agent.adapterConfig || {}).acpxAgent === "claude";
+    if (agent.adapterType !== "claude_local" && !runner) continue;
     const bind = !runtime.aiConnection || dropped.has(bound);
     const onSelan = bind || bound === connection.id;
     const setModel = MODEL && onSelan && !modelGiven.has(agent.id) && (agent.adapterConfig || {}).model !== MODEL;
     // Paperclip merges adapterConfig one level deep, so env is sent whole. Its redacted values
     // come back as they were: Paperclip puts the stored value back for "***REDACTED***".
     const env = (agent.adapterConfig || {}).env || {};
-    const setClaude = CLAUDE_CODE && !Object.prototype.hasOwnProperty.call(env, "CLAUDE_CODE_EXECUTABLE");
+    const setClaude = CLAUDE_CODE && !runner && !Object.prototype.hasOwnProperty.call(env, "CLAUDE_CODE_EXECUTABLE");
     if (bind || setModel || setClaude) {
       await call("PATCH", "/agents/" + agent.id, {
         ...(bind ? { runtimeConfig: { ...runtime, aiConnection: binding } } : {}),

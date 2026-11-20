@@ -7,8 +7,8 @@
 set -euo pipefail
 
 # The version this repository has tried. Bump it by pull request.
-PAPERCLIP_VERSION="2026.1023.0"
-CLAUDE_CODE_VERSION="2.1.326"
+PAPERCLIP_VERSION="2026.1117.0"
+CLAUDE_CODE_VERSION="2.1.329"
 INSTALLED="paperclipai $PAPERCLIP_VERSION, claude-code $CLAUDE_CODE_VERSION"
 RAW="https://raw.githubusercontent.com/selan-ai/selan-apps/main/paperclip"
 
