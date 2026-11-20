@@ -51,6 +51,23 @@ export PYTHONPYCACHEPREFIX="$APP_HOME/xdg/cache/pycache" npm_config_cache="$APP_
 # uv from the install, when there was none on PATH.
 [ ! -x "$APP_HOME/uv/uv" ] || export PATH="$APP_HOME/uv:$PATH"
 command -v uvx >/dev/null 2>&1 || { echo "uv is not installed: run install.sh first" >&2; exit 1; }
+# agent-canvas starts the agent server and the automation backend with uvx, which asks PyPI again
+# once its cache is a few minutes old, and fails when PyPI does not answer. install.sh fetched both
+# and the Python they run on, so they start offline: agent-canvas finds this uvx first, and it runs
+# uv's own with --offline. It takes itself off PATH before that, so the servers and their agents
+# never see it, and an agent's own uv still reaches PyPI. UV_OFFLINE would reach them all.
+mkdir -p "$APP_HOME/uvx-offline"
+cat >"$APP_HOME/uvx-offline/uvx" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+path=":$PATH:"
+path="${path//:$(dirname "$0"):/:}"
+path="${path#:}"
+export PATH="${path%:}"
+exec uvx --offline "$@"
+EOF
+chmod +x "$APP_HOME/uvx-offline/uvx"
+export PATH="$APP_HOME/uvx-offline:$PATH"
 
 # The token goes to curl on stdin, so it is not in a process listing.
 settings="$(printf 'header = "Authorization: Bearer %s"\n' "$SELAN_TOKEN" \

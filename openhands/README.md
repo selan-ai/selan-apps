@@ -39,7 +39,11 @@ everything it started stops within a few seconds.
    stops `run.sh` before OpenHands starts; unset, it is the first one. Claude or not, every model
    goes through the same Anthropic Messages endpoint.
 2. Starts Agent Canvas: its web UI, the agent server and the automation backend. Its session key
-   is kept in `$SELAN_APP_HOME/backend-key` (owner only), so a restart signs nobody out.
+   is kept in `$SELAN_APP_HOME/backend-key` (owner only), so a restart signs nobody out. The agent
+   server and the automation backend start offline, from what `install.sh` fetched: Agent Canvas
+   runs them with `uvx`, and the first `uvx` on its PATH is `$SELAN_APP_HOME/uvx-offline/uvx`,
+   which adds `--offline`. So a start never waits on PyPI, however old uv's cache is. That `uvx`
+   takes itself off PATH before it runs uv's own, so the agents' own uv still reaches PyPI.
 3. Once the agent server answers, gives OpenHands one LLM setting: the LLM profile `default`, with
    `$SELAN_GATEWAY/anthropic` as its endpoint, the token as its key and `anthropic/<model>` as its
    model. It is saved and made the active profile at every launch, which also puts it in
@@ -77,10 +81,16 @@ Everything is under `$SELAN_APP_HOME` (default `~/.selan/apps/openhands`), about
 - `uv/`: uv itself, only if your PATH had none.
 - `home/`: the home OpenHands sees. Its `.openhands` holds its settings, profiles, conversations,
   automations and keys, and the agents' workspaces; its terminal starts here.
+- `uvx-offline/`: the `uvx` above, written by `run.sh` at every launch.
 - `npm-cache/`, `cache/` (node-gyp's headers), `backend-key`, `installed` and `run.sh`.
 
 Nothing is installed globally. The agent server keeps its terminal's tmux sockets in the system's
 temporary directory, and removes them when it stops.
+
+The browser tool uses a Chrome or Chromium that is already there: in `/usr/bin` (`google-chrome`,
+`chromium` and the like), on PATH, or in Playwright's cache (`$PLAYWRIGHT_BROWSERS_PATH`, or
+`~/.cache/ms-playwright` in the home OpenHands sees). `install.sh` adds none. With none, OpenHands
+starts the agent without its browser tools, and every other tool works.
 
 ## Claude
 
