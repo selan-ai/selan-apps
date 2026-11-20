@@ -9,9 +9,11 @@
 set -euo pipefail
 
 # The release this repository has tried. Bump it by pull request.
-HERMES_REF="v2026.9.24"
-# The mcp extra is what lets Hermes talk to the company's connectors.
-STAMP="$HERMES_REF+mcp"
+HERMES_REF="v0.23.3"
+# The mcp extra is what lets Hermes talk to the company's connectors; the anthropic extra is its
+# client for the gateway, which Hermes would otherwise install into an environment of its own
+# at the first chat and then refuse to use from this venv.
+STAMP="$HERMES_REF+mcp+anthropic"
 HERMES_REPO="https://github.com/NousResearch/hermes-agent.git"
 RAW="https://raw.githubusercontent.com/selan-ai/selan-apps/main/hermes"
 
@@ -66,7 +68,9 @@ else
 fi
 
 echo "building hermes $HERMES_REF"
-(cd "$SRC" && "$UV" sync --frozen --extra mcp --no-progress)
+# The Python the release names in .python-version, which UV_NO_CONFIG stops uv reading itself.
+# Its lock file can rule out the Python an earlier release's venv was built on (v0.23 allows only 3.14).
+(cd "$SRC" && "$UV" sync --frozen --python "$(cat .python-version)" --extra mcp --extra anthropic --no-progress)
 
 copy_run_script
 echo "$STAMP" >"$APP_HOME/installed"
