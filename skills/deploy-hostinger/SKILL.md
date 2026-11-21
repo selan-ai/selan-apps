@@ -1,6 +1,6 @@
 ---
 name: deploy-hostinger
-description: Use when someone wants an app from the Selan apps catalog (Hermes, Paperclip, OpenHands) running on a Hostinger VPS they already have, as a systemd service, with the Hostinger MCP server or API to find the VPS and SSH to set it up.
+description: Use when someone wants an app from the Selan apps catalog (Hermes, Paperclip, OpenHands, OpenClaw) running on a Hostinger VPS they already have, as a systemd service, with the Hostinger MCP server or API to find the VPS and SSH to set it up.
 allowed-tools: Bash Read WebFetch mcp__hostinger__authenticate mcp__hostinger__complete_authentication
 ---
 
@@ -15,7 +15,7 @@ below was written from Hostinger's documentation and has not been run against a 
    the MCP server, the same from the API: `GET https://developers.hostinger.com/api/vps/v1/virtual-machines`
    with `Authorization: Bearer <API token from hPanel>`; the person types the token into the
    environment (`HOSTINGER_API_TOKEN`) themselves. Ask which VPS and the app (`catalog.json`).
-   It needs Debian or Ubuntu with at least 1 GB of memory (4 GB for OpenHands) and root SSH; if the
+   It needs Debian or Ubuntu with at least 1 GB of memory (4 GB for OpenHands and OpenClaw) and root SSH; if the
    VPS is stopped, start it (`POST /api/vps/v1/virtual-machines/{id}/start`) and wait. Do not reinstall or recreate it.
 2. **Show before running.** Print the commit
    (`git ls-remote https://github.com/selan-ai/selan-apps main`) and the full `<app>/install.sh` and
@@ -36,7 +36,7 @@ below was written from Hostinger's documentation and has not been run against a 
    useradd --create-home --shell /bin/bash selan
    git clone https://github.com/selan-ai/selan-apps /opt/selan-apps && git -C /opt/selan-apps checkout SHA
    ```
-   Paperclip and OpenHands also need Node 24, and Paperclip Claude Code:
+   Paperclip, OpenHands and OpenClaw also need Node 24, and Paperclip Claude Code:
    ```sh
    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y nodejs
    npm install -g @anthropic-ai/claude-code   # Paperclip only
@@ -59,7 +59,7 @@ below was written from Hostinger's documentation and has not been run against a 
    [Install]
    WantedBy=multi-user.target
    ```
-   `ARGS` is `gateway run` for Hermes, empty for Paperclip and OpenHands. systemd reads `EnvironmentFile` as root
+   `ARGS` is `gateway run` for Hermes, empty for Paperclip, OpenHands and OpenClaw. systemd reads `EnvironmentFile` as root
    before it drops to `selan`. Then `systemctl daemon-reload && systemctl enable --now selan-APP`,
    and `systemctl status` / `journalctl -u selan-APP -n 50`.
 7. **Finish.**
@@ -75,6 +75,10 @@ below was written from Hostinger's documentation and has not been run against a 
      owner, with a shell), so it is never exposed. Reach it by SSH tunnel:
      `ssh -N -L 8000:127.0.0.1:8000 root@HOST` (leave it running), then http://127.0.0.1:8000. Do not open port 8000 in
      Hostinger's firewall.
+   - **OpenClaw** answers on the VPS's loopback and asks for the password `run.sh` made, in
+     `/home/selan/.selan/apps/openclaw/gateway/password`. Its agent runs tools on the VPS, so it is
+     never exposed. Reach it by SSH tunnel: `ssh -N -L 18789:127.0.0.1:18789 root@HOST` (leave it
+     running), then http://127.0.0.1:18789. Do not open port 18789 in Hostinger's firewall.
    - If Hostinger's firewall for the VPS is on, leave it on; nothing here needs a new port.
 8. **Remove it.** `systemctl disable --now selan-APP`, delete the unit, `/etc/selan-APP.env`,
    `/home/selan` and `/opt/selan-apps` (and `userdel selan`); tell the person to revoke the

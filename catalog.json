@@ -28,6 +28,16 @@
         "node",
         "npm"
       ]
+    },
+    {
+      "name": "openclaw",
+      "description": "OpenClaw, an assistant you chat with that uses tools on its machine",
+      "homepage": "https://github.com/openclaw/openclaw",
+      "needs": [
+        "curl",
+        "node",
+        "npm"
+      ]
     }
   ]
 }

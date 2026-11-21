@@ -1,6 +1,6 @@
 ---
 name: deploy-google-cloud
-description: Use when someone wants an app from the Selan apps catalog (Hermes, Paperclip, OpenHands) running on a Compute Engine VM in their own Google Cloud project, as a systemd service, reached over SSH through IAP with no open firewall port.
+description: Use when someone wants an app from the Selan apps catalog (Hermes, Paperclip, OpenHands, OpenClaw) running on a Compute Engine VM in their own Google Cloud project, as a systemd service, reached over SSH through IAP with no open firewall port.
 allowed-tools: Bash Read WebFetch
 ---
 
@@ -10,8 +10,8 @@ The VM runs the catalog's own `install.sh` and `run.sh` (github.com/selan-ai/sel
 rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts and secrets.
 
 **Ask first:** the app (`catalog.json`), the project, the zone, and the machine type (default
-`e2-small`, Debian 12; `e2-standard-2` for OpenHands). `APP` below is the app's name, `VM` is
-`selan-<app>`, `PROJECT` and `ZONE` the answers.
+`e2-small`, Debian 12; `e2-standard-2` for OpenHands, `e2-medium` for OpenClaw). `APP` below is
+the app's name, `VM` is `selan-<app>`, `PROJECT` and `ZONE` the answers.
 
 1. **Show before running.** Print the commit
    (`git ls-remote https://github.com/selan-ai/selan-apps main`) and the full `<app>/install.sh` and
@@ -56,7 +56,7 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
    useradd --create-home --shell /bin/bash selan
    git clone https://github.com/selan-ai/selan-apps /opt/selan-apps && git -C /opt/selan-apps checkout SHA
    ```
-   Paperclip and OpenHands also need Node 24, and Paperclip Claude Code for its agents:
+   Paperclip, OpenHands and OpenClaw also need Node 24, and Paperclip Claude Code for its agents:
    ```sh
    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y nodejs
    npm install -g @anthropic-ai/claude-code   # Paperclip only
@@ -88,7 +88,7 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
    [Install]
    WantedBy=multi-user.target
    ```
-   `ARGS` is `gateway run` for Hermes and empty for Paperclip and OpenHands. Then
+   `ARGS` is `gateway run` for Hermes and empty for Paperclip, OpenHands and OpenClaw. Then
    `systemctl daemon-reload && systemctl enable --now selan-APP`.
    Check `systemctl status selan-APP` and `journalctl -u selan-APP -n 50`.
 7. **Reach it and finish.**
@@ -109,6 +109,11 @@ rewritten. Needs `gcloud` signed in with rights to create VMs, service accounts 
      its owner, with a shell on the VM. It is never exposed. Reach it by the same kind of tunnel,
      `gcloud compute ssh VM --project PROJECT --zone ZONE --tunnel-through-iap -- -N -L 8000:127.0.0.1:8000`,
      and open http://127.0.0.1:8000.
+   - **OpenClaw** answers on the VM's loopback and asks for the password `run.sh` made, in
+     `/home/selan/.selan/apps/openclaw/gateway/password` (read it over the same ssh with `sudo cat`).
+     Its agent runs tools on the VM. It is never exposed. Reach it by the same kind of tunnel,
+     `gcloud compute ssh VM --project PROJECT --zone ZONE --tunnel-through-iap -- -N -L 18789:127.0.0.1:18789`,
+     and open http://127.0.0.1:18789.
 8. **Remove it.** Delete everything, then the token:
    ```sh
    gcloud compute instances delete VM --project PROJECT --zone ZONE --delete-disks=all --quiet
