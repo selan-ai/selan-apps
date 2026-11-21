@@ -115,13 +115,30 @@ else
 fi
 API="http://127.0.0.1:$PORT/api"
 
+# OpenHands asks each new browser whether to send anonymous usage data to OpenHands, with the box
+# already ticked, and its page reports the install there before anyone has answered. So its "Send
+# anonymous usage data" (Settings > Application) starts off: apply_settings turns it off while
+# nobody has set it, and nobody is asked. Until it is on, Agent Canvas serves the page with its
+# telemetry switched off, the install report included. Someone who turns it on keeps it, and
+# OpenHands sends from the next start.
+usage_data_on() {
+  node -e '
+const misc = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).misc_settings || {};
+const consent = misc.telemetry?.consent;
+const on = consent && consent !== "unset" ? consent === "granted" : misc.app_preferences?.user_consents_to_analytics === true;
+process.exit(on ? 0 : 1);
+' "$HOME/.openhands/settings.json" 2>/dev/null
+}
+usage_data_on || export AGENT_CANVAS_DISABLE_TELEMETRY=1
+
 # Gives OpenHands its one LLM setting: the LLM profile "default", saved and made the active one.
 # The UI starts conversations from the default agent profile, which points at that LLM profile;
 # OpenHands copies its settings into the LLM profile once and never again, so writing only the
 # settings would leave the UI on the first launch's model and token. Activating it copies it into
 # the settings too, for the API and automations. Whatever else the profile holds is kept. The key
 # and the session key reach node through its environment, so neither is on an argument list.
-apply_llm_settings() {
+# Then usage data off, if nobody has set it.
+apply_settings() {
   SELAN_MODEL="$MODEL" node -e '
 const [api, gateway] = process.argv.slice(1);
 const call = async (method, path, body) => {
@@ -137,6 +154,11 @@ const saved = await call("GET", "/profiles/default");
 const llm = { ...saved?.config, model: "anthropic/" + process.env.SELAN_MODEL, base_url: gateway + "/anthropic", api_key: process.env.SELAN_TOKEN };
 await call("POST", "/profiles/default", { llm, include_secrets: true });
 await call("POST", "/profiles/default/activate");
+const misc = (await call("GET", "/settings")).misc_settings || {};
+const consent = misc.telemetry?.consent;
+if ((!consent || consent === "unset") && typeof misc.app_preferences?.user_consents_to_analytics !== "boolean") {
+  await call("PATCH", "/settings", { misc_settings_diff: { app_preferences: { user_consents_to_analytics: false } } });
+}
 ' "$API" "$SELAN_GATEWAY"
 }
 
@@ -175,6 +197,6 @@ for _ in $(seq 1 600); do
   kill -0 "$server_pid" 2>/dev/null || { echo "OpenHands stopped before it was ready" >&2; exit 1; }
   sleep 1
 done
-apply_llm_settings || { echo "could not give OpenHands the Selan LLM setting" >&2; exit 1; }
+apply_settings || { echo "could not give OpenHands its Selan settings" >&2; exit 1; }
 echo "OpenHands runs on $MODEL"
 wait "$server_pid"
