@@ -52,6 +52,15 @@ everything it started stops within a few seconds.
    conversation keeps the model it started with. Anything else you set in that profile is kept,
    and an agent profile you point at another LLM profile is left alone.
 
+## Usage data
+
+OpenHands' "Send anonymous usage data" (Settings > Application) starts off, and nobody is asked:
+on its own, OpenHands asks each new browser with the box already ticked, and its page reports the
+install to OpenHands before anyone answers. Once the agent server answers, `run.sh` turns the
+setting off while nobody has set it. Until it is on, Agent Canvas serves its page with telemetry
+switched off (`AGENT_CANVAS_DISABLE_TELEMETRY`), the install report included. Turn it on there
+and OpenHands sends usage data from the next start; `run.sh` never turns it back off.
+
 ## Behind Selan's proxy
 
 With `SELAN_APP_PORT` set ([the contract](../README.md#behind-a-proxy)), Agent Canvas answers on
