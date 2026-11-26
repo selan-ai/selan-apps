@@ -7,7 +7,7 @@ set -euo pipefail
 
 # The release this repository has tried. Bump it by pull request. It pins the agent server and
 # the automation backend it starts (see `agent-canvas --info`).
-AGENT_CANVAS_VERSION="1.42.0"
+AGENT_CANVAS_VERSION="1.43.0"
 RAW="https://raw.githubusercontent.com/selan-ai/selan-apps/main/openhands"
 
 APP_HOME="${SELAN_APP_HOME:-$HOME/.selan/apps/openhands}"
