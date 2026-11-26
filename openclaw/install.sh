@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # The release this repository has tried. Bump it by pull request.
-OPENCLAW_VERSION="2026.11.6"
+OPENCLAW_VERSION="2026.11.7"
 RAW="https://raw.githubusercontent.com/selan-ai/selan-apps/main/openclaw"
 
 APP_HOME="${SELAN_APP_HOME:-$HOME/.selan/apps/openclaw}"
